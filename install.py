@@ -1309,20 +1309,35 @@ gInstallPath=str(env["userScriptsDirectory"])
 gDownloadPath="https://github.com/DrovGamedev/BombSquad-Hardcore-Modpack/raw/master/"
 #str(env["configFilePath"].split("/")[0:-2]) if env["platform"] == "android" else str(env["userScriptsDirectory"])
 
-def download(url, path):
+def download(url, path, reload_files=True):
+    print("try to open url: "+url)
     try:
         u = urlopen(url.replace(" ", "%20"))
-        fp = open(path, 'wb')
-        while True:
-            chunk = u.read(8192)
-            if not chunk: break
-            fp.write(chunk)
-        fp.close()
-        return True
+        print("opened successfully")
     except Exception as E:
+        print("cann\'t open url: "+url+"; connection aborted")
         print(str(E))
-        bs.screenMessage("some download error", color=(1,0,0))
         return False
+    print("creating file "+path.split(os.sep)[-1])
+    if not os.path.exists(path) or reload_files:
+        fp = open(path, 'wb')
+        info, cnt = 0, 0
+        print("reading chunks...")
+        while True:
+            try: chunk = u.read(8192)
+            except:
+                print("error reading chunk "+str(cnt))
+                return False
+            if not chunk:
+                print("download complete; bytes: "+ str(info) + " ("+str(float(info/1048576))+"mb); chunks count: "+str(cnt))
+                break
+            fp.write(chunk)
+            info += len(bytes(chunk))
+            cnt += 1
+        fp.close()
+        print("file created.")
+        return True
+    else: raise ValueError("path already exists: " + path)
 
 if len(install_modules) > 0:
     for i in install_modules:
