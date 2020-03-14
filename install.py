@@ -1356,6 +1356,13 @@ def get_local_versions():
     if "install.py" in data: data.pop("install.py")
     return data
 
+def reloadScripts():
+    a=globals().keys()
+    for i in a:
+        if "__package__" in dir(globals()[i]):
+            try: reload(__import__(i))
+            except: pass
+
 def get_versions_from_source(last=False):
     file = "versions.json"
     path = str(os.path.join(gInstallPath, file))
@@ -1457,7 +1464,7 @@ def extract_file(data={}):
         path=os.path.join(gInstallPath, str(data["version"]["name"]))
         if os.path.exists(path) and zipfile.is_zipfile(path):
             zipfile.ZipFile(path).extractall(gInstallPath)
-            bs.screenMessage(bs.Lstr(resource='settingsWindowAdvanced.mustRestartText'), color=(1, 1, 0))
+            reloadScripts()
     except Exception:
         raise InstallError
 
