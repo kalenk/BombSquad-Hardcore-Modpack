@@ -128,7 +128,7 @@ class PoisonBombHitMessage(object):
 
 playerspazinit_old, handleMessage_old, bot_handleMessage_old = bsSpaz.PlayerSpaz.__init__, bsSpaz.PlayerSpaz.handleMessage, bsSpaz.SpazBot.handleMessage
 
-def __init__(self, color=(1, 1, 1), highlight=(0.5, 0.5, 0.5), character="Spaz", player=None, powerupsExpire=True):
+def playerspazinit(self, color=(1, 1, 1), highlight=(0.5, 0.5, 0.5), character="Spaz", player=None, powerupsExpire=True):
     if player is None: player = bs.Player(None)
     Spaz.__init__(self, color=color, highlight=highlight,
                   character=character, sourcePlayer=player,
@@ -157,7 +157,7 @@ class ZeroBossDeathMessage(object):
         self.killerPlayer = killerPlayer
         self.how = how
 
-def handleMessage(self, msg):
+def handleMessageModifed(self, msg):
     self._handleMessageSanityCheck()
     if hasattr(self, 'is_boss') and self.is_boss:
         if isinstance(msg, bs.HitMessage) and (msg.hitSubType in ['bossBlast', 'impact', 'killLaKill', 'poisonEffect', 'poison', 'landMine'] or msg.sourcePlayer is None): return True
@@ -194,9 +194,6 @@ def handleMessage(self, msg):
     else:
         if isinstance(self, bsSpaz.PlayerSpaz): handleMessage_old(self, msg)
         elif isinstance(self, bsSpaz.SpazBot): bot_handleMessage_old(self, msg)
-
-bsSpaz.PlayerSpaz.__init__ = playerspazinit_old
-bsSpaz.PlayerSpaz.handleMessage, bsSpaz.SpazBot.handleMessage = handleMessage, handleMessage
 
 class PoisonBombBlast(bs.Blast):
     def __init__(self, position=(0,1,0), velocity=(0,0,0), sourcePlayer=None, hitType='explosion', hitSubType='normal'):
@@ -536,12 +533,14 @@ class ZeroGameUpdated(bs.TeamGameActivity):
             })]
 
     def __init__(self, settings):
-        bs.TeamGameActivity.__init__(self, settings)        
+        bs.TeamGameActivity.__init__(self, settings)
         self._scoreBoard = bs.ScoreBoard()
         self._bots = bs.BotSet()
         self.settings = settings
 
     def onTransitionIn(self):
+        bsSpaz.PlayerSpaz.__init__ = playerspazinit
+        bsSpaz.PlayerSpaz.handleMessage, bsSpaz.SpazBot.handleMessage = handleMessageModifed, handleMessageModifed
         bs.TeamGameActivity.onTransitionIn(self, music='Scary')
 
     def onBegin(self):
