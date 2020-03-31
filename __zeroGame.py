@@ -780,8 +780,7 @@ class ZeroGameUpdated(bs.TeamGameActivity):
             for i in self.players:
                 if i.exists():
                     self.maxRespawn += self.settings['Lives Per Player']
-                    self.respawn += player.gameData['lives']
-            self.respawn = self.maxRespawn - self.respawn
+                    self.respawn += (self.settings['Lives Per Player']-i.gameData['lives']) if hasattr(i, 'gameData') and 'lives' in i.gameData else 0
             if self.respawn >= self.maxRespawn: self.endGame()
         elif isinstance(m, ZeroBossDeathMessage):
             self.celebratePlayers()
