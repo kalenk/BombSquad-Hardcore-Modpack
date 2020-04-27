@@ -170,6 +170,12 @@ if platform == "android":
             self.on_entry_request(entry=entry, delete=not val)
         def _select_dir(self, path):
             if path is not None: self._setPath(path, True)
+        def _getReplayDisplayName(self, replay):
+            if replay.endswith('.brp'):
+                replay = replay[:-4]
+            if replay == '__lastReplay':
+                return bs.Lstr(resource='replayNameDefaultText').evaluate()
+            return replay
         def _refresh(self, fileNames=None, error=None):
             if not self._rootWidget.exists(): return
     
@@ -305,6 +311,7 @@ if platform == "android":
                         if entry.endswith('.brp'):
                             fileCheckBox(parent=c, name=entryPath, position=(self._width-130, -5), 
                                 valueChangeCall=self.fileSelectCallback)
+                            entry = str(self._getReplayDisplayName(entry).encode('utf-8'))
                     t = bs.textWidget(
                         parent=c, drawController=c, text=entry, hAlign='left',
                         vAlign='center',
