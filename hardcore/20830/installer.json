@@ -105,7 +105,7 @@ def update(version=None, ignore_old=True):
         path = (USER_SCRIPTS_PATH + os.path.sep); temp = (SYSTEM_SCRIPTS_PATH + os.path.sep)
         def update_file(*args):
             src = args[0]; dst = args[1]; cnt_end = args[2]
-            for c in args: print("args: " + c)
+            for c in args: print("args: " + str(c))
             if os.path.exists(dst): 
                 try: os.remove(dst)
                 except: pass
