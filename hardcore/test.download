@@ -1,1 +1,4 @@
-# bruh
+# -*- coding: utf-8 -*-
+
+a = "test message"
+print(a)
