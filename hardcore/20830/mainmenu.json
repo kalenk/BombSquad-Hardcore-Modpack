@@ -1,0 +1,440 @@
+﻿# -*- coding: utf-8 -*-
+import bs
+import bsUtils
+import bsUI
+import bsSpaz
+import random
+import time
+import weakref
+import bsInternal
+import os, shutil
+try: from hardcore.advanced import get_settings
+except: get_settings = lambda : {}
+
+START_TIME = time.time()
+env = bs.getEnvironment()
+SYSTEM_SCRIPTS_DIR = env['systemScriptsDirectory']
+SYSTEM_DIR = os.path.sep.join(SYSTEM_SCRIPTS_DIR.split(os.path.sep)[0:-1])
+USER_SCRIPTS_DIR = env['userScriptsDirectory']
+PLATFORM = env['platform']
+VERSION = env['version']
+
+vrMode = env['vrMode']
+interfaceType = env['interfaceType']
+toolbarTest = env.get('toolbarTest', True)
+debugBuild = env['debugBuild']
+testBuild = env['testBuild']
+kioskMode = env['kioskMode']
+
+INITIAL_TRANSITION = False
+
+del env
+
+def change_menu_music():
+    # rename file menuMusic.ogg to menuMusic.temp
+    # move new-menu-music file to ones
+    if not PLATFORM == 'android': return
+    files = {'newMenuMusic.ogg': 'menuMusic.ogg'}
+    user_files = os.listdir(USER_SCRIPTS_DIR)
+    for file in files:
+        if file not in user_files: return
+        temp = SYSTEM_DIR + os.path.sep + 'audio' + os.path.sep; t = files[file]
+        if os.path.exists(temp + t):
+            try: shutil.move(temp + t, temp + t.replace('.ogg', '.temp'))
+            except: pass
+        try: shutil.move(USER_SCRIPTS_DIR + os.path.sep + file, temp + t)
+        except: pass
+
+def fireworks(self):
+    def firework_emit():
+        bs.emitBGDynamics(position=(random.randint(-10, 10), random.randrange(14, 15), random.randint(-10, 10)),
+            velocity = tuple([1.0*random.randrange(1,2) for i in range(3)]),
+            count = random.randint(1000, 1200),
+            scale = 1.0, spread = 0.8, chunkType = 'spark')
+    start_time = bs.getGameTime()
+    def a():
+        if bs.getGameTime() - start_time >= 141: self._fireworks = None; self._fireworks = bs.Timer(200000, bs.Call(fireworks, self))
+        else: self._fireworks = bs.Timer(500, bs.Call(a), True); firework_emit()
+    a()
+
+def get_menu_text_pos():
+    if bsInternal._getSetting("TV Border"): position = (0, -10)
+    else: position = (-425, 10) if env['interfaceType'] != 'small' or env['vrMode'] else (-425, 35) 
+    return position
+
+def change_menu_text_pos(self):
+    if not hasattr(self, 'moderName'): return
+    def a():
+        position = get_menu_text_pos()
+        if self.moderName.node.position != position:
+            bs.animate(self.moderName.node, 'opacity', {0: 1.0, 500: 0.0, 1000: 0.0, 2000: 1.0})
+            def a():
+                self.moderName.node.position = position
+            bs.gameTimer(550, bs.Call(a))
+    if self.moderName.node.opacity < 1.0: 
+        bs.animate(self.moderName.node, 'opacity', {0: self.moderName.node.opacity, 500: 1.0})
+        bs.gameTimer(500, bs.Call(a))
+    else: a()
+  
+class MainMenuActivity(bs.Activity):
+    settings = get_settings()
+    def __init__(self, settings = {}):
+        bs.Activity.__init__(self,settings)
+        change_menu_music()
+
+    def onTransitionIn(self):
+        global INITIAL_TRANSITION
+        bs.Activity.onTransitionIn(self)
+        global gDidInitialTransition
+        random.seed(123)
+        self._logoNode = None
+        self._customLogoTexName = None
+        self._wordActors = []
+        forceShowBuildNumber = True
+        if not toolbarTest:
+            self.myName = bs.NodeActor(bs.newNode('text', attrs={
+                'vAttach':'bottom',
+                'hAlign':'center',
+                'color':(1, 1, 1, 1) if vrMode else (1, 1, 1, 1),
+                'flatness':1.0,
+                'shadow':1.0 if vrMode else 0.5,
+                'scale':(0.65 if interfaceType == 'small' or vrMode else 0.7),
+                'position': (0, 25),
+                'vrDepth':-10,
+                'text':u'\xa9 2020 Eric Froemling'}))
+            self.moderName = bs.NodeActor(bs.newNode('text', attrs={
+                'vAttach':'bottom',
+                'hAlign':'center',
+                'color':(0.8, 0.8, 0.8, 0.8) if vrMode else (0.8, 0.8, 0.8, 0.8), 
+                'flatness':1.0,
+                'shadow':1.0 if vrMode else 0.5,
+                'scale':(0.55 if interfaceType == 'small' or vrMode else 0.7),
+                'position': get_menu_text_pos,
+                'vrDepth':-10,
+                'text':u'\xa9 ModPack is created by Daniil Rakhov'}))
+            try: from hardcore import get_version
+            except: text = "HardCore ModPack"
+            else: text = "HardCore ModPack v." + get_version(False)
+            if debugBuild: text += " [debug]"
+            if testBuild: text += " [test]"
+            if forceShowBuildNumber: text = "based on " + str(VERSION) + "\n" + text
+            self.modpackVersion = bs.NodeActor(bs.newNode('text', attrs={
+                'vAttach':'bottom',
+                'hAttach':'right',
+                'hAlign':'right',
+                'flatness':1.0,
+                'vrDepth':-10,
+                'shadow': 0.5,
+                'color': (0.5,0.6,0.5,0.7),
+                'scale':0.7 if (interfaceType == 'small' or vrMode) else 0.85,
+                'position':(-260,10) if vrMode else (-10,30),
+                'text': text}))
+            if not INITIAL_TRANSITION:
+                bs.animate(self.modpackVersion.node,'opacity',{0:0, 3000:0, 4000:1.0})
+                bs.animate(self.myName.node, 'opacity', {0:0, 2300:0, 3000:1.0})
+                bs.animate(self.moderName.node, 'opacity', {0:0, 2300:0, 3300:1.0})
+        self._hostIsNavigatingText = bs.NodeActor(bs.newNode('text', attrs={
+            'text':bs.Lstr(resource='hostIsNavigatingMenusText', subs=[('${HOST}', bsInternal._getAccountDisplayString())]),
+            'clientOnly':True,
+            'position':(0,-200),
+            'flatness':1.0,
+            'hAlign':'center'}))
+        self.betaInfo = self.betaInfo2 = None
+        if testBuild and not kioskMode:
+            self.betaInfo = bs.NodeActor(bs.newNode('text', attrs={
+                'vAttach':'center',
+                'hAlign':'center',
+                'color':(1,1,1,1),
+                'shadow':0.5,
+                'flatness':0.5,
+                'scale':1,
+                'vrDepth':-60,
+                'position':(230,125) if env['kioskMode'] else (230,35),
+                'text': bs.Lstr(resource="testBuildText")}))
+            if not INITIAL_TRANSITION: bs.animate(self.betaInfo.node, 'opacity', {0:0, 1300:0, 1800:1.0})
+
+        model = bs.getModel('thePadLevel')
+        treesModel = bs.getModel('trees')
+        bottomModel = bs.getModel('thePadLevelBottom')
+        borModel = bs.getCollideModel('thePadLevelCollide')
+        testColorTexture = bs.getTexture('thePadLevelColor')
+        treesTexture = bs.getTexture('treesColor')
+        bgTex = bs.getTexture('alwaysLandBGColor')
+        bgModel = bs.getModel('alwaysLandBG')
+        vrBottomFillModel = bs.getModel('thePadVRFillBottom')
+        vrTopFillModel = bs.getModel('thePadVRFillTop')
+
+        g = bs.getSharedObject('globals')
+        g.cameraMode = 'rotate'
+        g.tint = (1.1, 1.1, 1.0)
+
+        self.bottom = bs.NodeActor(bs.newNode('terrain', attrs={
+            'model': bottomModel,
+            'lighting':False,
+            'reflection':'soft',
+            'reflectionScale':[0.45],
+            'colorTexture': testColorTexture}))
+        self.node = bs.newNode('terrain', delegate=self, attrs={
+            'collideModel': borModel,
+            'model': model,
+            'colorTexture': testColorTexture,
+            'materials': [bs.getSharedObject('footingMaterial')]})
+        self.vrBottomFill = bs.NodeActor(bs.newNode('terrain', attrs={
+            'model':vrBottomFillModel,
+            'lighting':False,
+            'vrOnly':True,
+            'colorTexture': testColorTexture}))
+        self.vrTopFill = bs.NodeActor(bs.newNode('terrain', attrs={
+            'model': vrTopFillModel,
+            'vrOnly': True,
+            'lighting': False,
+            'colorTexture': bgTex}))
+        self.terrain = bs.NodeActor(bs.newNode('terrain', attrs={
+            'model': model,
+            'colorTexture': testColorTexture,
+            'reflection': 'soft',
+            'reflectionScale': [0.3]}))
+        self.trees = bs.NodeActor(bs.newNode('terrain', attrs={
+            'model': treesModel,
+            'lighting': False,
+            'reflection': 'char',
+            'reflectionScale': [0.1],
+            'colorTexture': treesTexture}))
+        self.bg = bs.NodeActor(bs.newNode('terrain', attrs={
+            'model': bgModel,
+            'color': (0.92,0.91,0.9),
+            'lighting': False,
+            'background': True,
+            'colorTexture': bgTex}))
+
+        self._language = None
+        self._updateTimer = bs.Timer(2000, bs.Call(self._update, False), repeat=True)
+        self._update(True)
+        bs.gameTimer(55000, bs.Call(fireworks, self))
+        bsUtils.animateArray(bs.getSharedObject("globals"), "tint", 3, {0:(1.1,1.1,1.0), 7500:(1.25, 1.21, 1.075), 30000:(1.25, 1.21, 1.075), \
+            57500:(1.1, 0.86, 0.74), 67500:(1.1, 0.86, 0.74), \
+            90000:(0, 0.27, 0.51), 120000:(0, 0.27, 0.51), 142500:(1.3, 1.06, 1.02), \
+            157500:(1.3, 1.06, 1.02), 180000:(1.3, 1.25, 1.2), 195500:(1.3, 1.25, 1.2), \
+            220000:(1.1,1.1,1.0)})
+        bsInternal._addCleanFrameCallback(bs.WeakCall(self._startPreloads))
+        random.seed()
+        with bs.Context('UI'):
+            try: mainWindow = bsUI.gMainWindow
+            except Exception: mainWindow = None
+            if kioskMode:
+                bsUI.uiGlobals['mainMenuWindow'] = bsUI.KioskWindow().getRootWidget()
+            else:
+                if mainWindow == 'Gather': bsUI.uiGlobals['mainMenuWindow'] = bsUI.GatherWindow(transition=None).getRootWidget()
+                elif mainWindow == 'Watch': bsUI.uiGlobals['mainMenuWindow'] = bsUI.WatchWindow(transition=None).getRootWidget()
+                elif mainWindow == 'Team Game Select': bsUI.uiGlobals['mainMenuWindow'] = bsUI.TeamsWindow(sessionType=bs.TeamsSession, transition=None).getRootWidget()
+                elif mainWindow == 'Free-for-All Game Select': bsUI.uiGlobals['mainMenuWindow'] = bsUI.TeamsWindow(sessionType=bs.FreeForAllSession, transition=None).getRootWidget()
+                elif mainWindow == 'Coop Select': bsUI.uiGlobals['mainMenuWindow'] = bsUI.CoopWindow(transition=None).getRootWidget()
+                else: bsUI.uiGlobals['mainMenuWindow'] = bsUI.MainMenuWindow(transition=None).getRootWidget()
+                if not bsUI._showOffer():
+                    def tryAgain():
+                        if not bsUI._showOffer(): bs.realTimer(2000, bsUI._showOffer)
+                    bs.realTimer(2000, tryAgain)
+        INITIAL_TRANSITION = True
+
+    def _update(self, forceUpdate=False):
+        if not self.settings.get("in_menu_author_name", True): bs.animate(self.moderName.node, 'opacity', {0: self.moderName.node.opacity, 500: 0.0})
+        else: change_menu_text_pos(self)
+        l = bs.getLanguage()
+        if l != self._language:
+            self._language = l
+            env = bs.getEnvironment()
+            y = 20
+            gScale = 1.1
+            self._wordActors = []
+            baseDelay = 1000
+            delay = baseDelay
+            delayInc = 20
+            baseX = -170
+            x = baseX-20
+            spacing = 55*gScale
+            for shadow in (True, False):
+                w = {'H': [-15, -23], 'a': [38, -23], 'r': [88, -23], 'd': [138, -23], \
+                    'C': [188, -23], 'o': [238, -23], 'r': [288, -23], 'e': [338, -23], \
+                    '◉': [162, -98]}
+                m = -500
+                for letter in w:
+                    p = w[letter]
+                    self._makeWord('H', x+p[0], y+p[1], scale=1.3*gScale, delay=delay+m, vrDepthOffset=3, shadow=True)
+                    m += 100
+           
+    def _makeWord(self, word, x, y, scale=1.0, delay=0, vrDepthOffset=0, shadow=True):
+        wordShadowObj = bs.NodeActor(bs.newNode('text', attrs={
+            'position':(x,y),
+            'big':True,
+            'color':(0.95, 1.55, 0.6+random.random()/2 if random.random()>0.6 else 0.6, 0.65),
+            'tiltTranslate':0.11,
+            'tiltTranslate':0.09,
+            'opacityScalesShadow':False,
+            'shadow':0.01,
+            'vrDepth':-130,
+            'vAlign':'center',
+            'projectScale':0.97*scale,
+            'scale':1.0,
+            'text':word}))
+        self._wordActors.append(wordShadowObj)
+        if not vrMode:
+            if not shadow: c = bs.newNode("combine", owner=wordObj.node, attrs={'size':2})
+            else: c = None
+            if shadow: c2 = bs.newNode("combine", owner=wordShadowObj.node, attrs={'size':2})
+            else: c2 = None
+            if not shadow: c.connectAttr('output',wordObj.node,'position')
+            if shadow: c2.connectAttr('output',wordShadowObj.node,'position')
+            keys = {}
+            keys2 = {}
+            timeV = 0
+            for i in range(10):
+                val = x + random.uniform(0, 1)
+                val2 = x + random.uniform(-1,0)
+                keys[timeV*self._ts] = val
+                keys2[timeV*self._ts] = val2
+                timeV += 720
+            if c is not None: bs.animate(c, "input0", keys, loop=True)
+            if c2 is not None: bs.animate(c2, "input0", keys2, loop=True)
+
+            keys = {}
+            keys2 = {}
+            timeV = 0
+            for i in range(10):
+                val = y+random.uniform(0, 1)
+                val2 = y+random.uniform(-1,0)
+                keys[timeV*self._ts] = val
+                keys2[timeV*self._ts] = val2
+                timeV += 1000
+            if c is not None: bs.animate(c,"input1",keys,loop=True)
+            if c2 is not None: bs.animate(c2,"input1",keys2,loop=True)
+
+        if not shadow:
+            bs.animate(wordObj.node, "projectScale", {delay:scale * 0, delay+210:scale})
+        else:
+            bs.animate(wordShadowObj.node, "projectScale", {delay:scale *0, delay+210:scale})
+
+    def _getCustomLogoTexName(self):
+        return None
+        
+    def _startPreloads(self):
+        if self.isFinalized(): return
+        with bs.Context(self): _preload1()
+        bs.gameTimer(500,lambda: bs.playMusic('Menu'))
+        
+def _preload1():
+    for m in ['plasticEyesTransparent', 'playerLineup1Transparent',
+              'playerLineup2Transparent', 'playerLineup3Transparent',
+              'playerLineup4Transparent', 'angryComputerTransparent',
+              'scrollWidgetShort', 'windowBGBlotch']: bs.getModel(m)
+    for t in ["playerLineup","lock"]: bs.getTexture(t)
+    for tex in ['iconRunaround', 'iconOnslaught',
+                'medalComplete', 'medalBronze', 'medalSilver',
+                'medalGold', 'characterIconMask']: bs.getTexture(tex)
+    bs.getTexture("bg")
+    bs.Powerup.getFactory()
+    bs.gameTimer(100, _preload2)
+
+def _preload2():
+    for m in ["powerup", "powerupSimple"]: bs.getModel(m)
+    for t in ["powerupBomb", "powerupSpeed", "powerupPunch", 
+        "powerupIceBombs", "powerupStickyBombs", "powerupShield",
+        "powerupImpactBombs", "powerupHealth"]: bs.getTexture(t)
+    for s in ["powerup01", "boxDrop", "boxingBell", 
+        "scoreHit01", "scoreHit02", "dripity", 
+        "spawn", "gong"]: bs.getSound(s)
+    bs.Bomb.getFactory()
+    bs.gameTimer(100, _preload3)
+
+def _preload3():
+    for m in ["bomb", "bombSticky", "impactBomb"]: bs.getModel(m)
+    for t in ["bombColor", "bombColorIce", "bombStickyColor", "impactBombColor", "impactBombColorLit"]: bs.getTexture(t)
+    for s in ["freeze", "fuse01", "activateBeep", "warnBeep"]: bs.getSound(s)
+    spazFactory = bs.Spaz.getFactory()
+    def _load(spaz):
+        spazFactory._preload(spaz)
+        bs.getTexture(bsSpaz.appearances[spaz].iconTexture)
+        bs.getTexture(bsSpaz.appearances[spaz].iconMaskTexture)
+    bs.gameTimer(200, _preload4)
+
+def _preload4():
+    for t in ['bar', 'meter', 'null', 'flagColor', 'achievementOutline']: bs.getTexture(t)
+    for m in ['frameInset', 'meterTransparent', 'achievementOutline']: bs.getModel(m)
+    for s in ['metalHit', 'metalSkid', 'refWhistle', 'achievement']: bs.getSound(s)
+    bs.Flag.getFactory()
+    bs.Powerup.getFactory()
+    bs.gameTimer(200, _preload5)
+
+def _preload5():
+    try: from hardcore.bombs import getFactory
+    except: pass
+    else: getFactory()
+    try: from hardcore.powerups import getFactory
+    except: pass
+    else: getFactory()
+
+class SplashScreenActivity(bs.Activity):
+
+    def __init__(self,settings={}):
+        bs.Activity.__init__(self,settings)
+        self._part1Duration = 4000
+        self._tex = bs.getTexture('aliSplash')
+        self._tex2 = bs.getTexture('aliControllerQR')
+        
+    def _startPreloads(self):
+        if self.isFinalized(): return
+        with bs.Context(self): _preload1()
+        
+    def onTransitionIn(self):
+        import bsInternal
+        bs.Activity.onTransitionIn(self)
+        bsInternal._addCleanFrameCallback(bs.WeakCall(self._startPreloads))
+        self._background = bsUtils.Background(fadeTime=500, startFaded=True,
+                                              showLogo=False)
+        self._part = 1
+        self._image = bsUtils.Image(self._tex, transition='fadeIn',
+                                    modelTransparent=bs.getModel('image4x1'),
+                                    scale=(800, 200), transitionDelay=500,
+                                    transitionOutDelay=self._part1Duration-1300)
+        bs.gameTimer(self._part1Duration, self.end)
+
+    def _startPart2(self):
+        if self._part != 1: return
+        self._part = 2
+        self._image = bsUtils.Image(self._tex2, transition='fadeIn',
+                                    scale=(400, 400), transitionDelay=0)
+        t = bsUtils._translate('tips', 'If you are short on controllers, '
+                               'install the \'${REMOTE_APP_NAME}\' app\n'
+                               'on your mobile devices to use them '
+                               'as controllers.')
+        t = t.replace('${REMOTE_APP_NAME}',bsUtils._getRemoteAppName())
+        self._text = bsUtils.Text(t, maxWidth=900, hAlign='center',
+                                  vAlign='center', position=(0,270),
+                                  color=(1,1,1,1), transition='fadeIn')
+    def onSomethingPressed(self):
+        self.end()
+
+gFirstRun = True
+
+class MainMenuSession(bs.Session):
+    def __init__(self):
+        bs.Session.__init__(self)
+        self._locked = False
+        env = bs.getEnvironment()
+        global gFirstRun
+        if env['platform'] == 'android' and env['subplatform'] == 'alibaba' and gFirstRun:
+            bsInternal._lockAllInput()
+            self._locked = True
+            self.setActivity(bs.newActivity(SplashScreenActivity))
+            gFirstRun = False
+        else: self.setActivity(bs.newActivity(MainMenuActivity))
+
+    def onActivityEnd(self,activity,results):
+        if self._locked: bsInternal._unlockAllInput()
+        self.setActivity(bs.newActivity(MainMenuActivity))
+        
+    def onPlayerRequest(self,player):
+        activity = self.getActivity()
+        if isinstance(activity, SplashScreenActivity):
+            with bs.Context(activity): activity.onSomethingPressed()
+        return False
+

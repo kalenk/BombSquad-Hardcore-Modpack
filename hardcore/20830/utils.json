@@ -34,7 +34,10 @@ if SKINS_ENABLED: SKINS = set([skins.get_format_skin_name(i) for i in bsSpaz.app
 else: SKINS = []
 
 LANG = bs.getLanguage()
-if SETTINGS_ENABLED: SETTINGS_ENABLED = (hasattr(advanced, "get_settings") and hasattr(advanced, "set_settings") and hasattr(advanced, "_settings"))
+if SETTINGS_ENABLED: 
+    try: from .advanced import get_settings, set_settings
+    except ImportError: SETTINGS_ENABLED = False
+    else: SETTINGS_ENABLED = True
 
 MAPS = _maps
 MAPS_TINT = {

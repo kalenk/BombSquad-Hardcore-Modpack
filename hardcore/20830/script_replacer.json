@@ -1,0 +1,32 @@
+import bsUtils, os; import shutil
+import bs
+
+env = bs.getEnvironment()
+
+# written by drov.drov
+
+USER_SCRIPTS_DIR = env['userScriptsDirectory']
+SYSTEM_SCRIPTS_DIR = env['systemScriptsDirectory']
+GET_MODULES_WITH_CALL = bsUtils._getModulesWithCall
+
+del env
+
+def _getModulesWithCall(callName, whiteList=None, blackList=None):
+    mods = {'ui': 'bsUI.py'}
+    for s in mods:
+        try: module = __import__(s)
+        except ImportError: continue
+        else: 
+            path = getattr(module, '__file__', '').replace('.pyc','.py')
+            if not path: continue
+        p = SYSTEM_SCRIPTS_DIR + os.path.sep
+        src = p + mods[s]; dst = p + mods[s].replace('.py', '.temp')
+        if not os.path.exists(src): continue
+        try: shutil.move(src, dst)
+        except: pass # pass operation-not-permitted errors
+        try: shutil.move(path, SYSTEM_SCRIPTS_DIR + os.path.sep + mods[s])
+        except: pass # pass operation-not-permitted errors
+        print("successfully replace script \"" + mods[s].replace('.py', '') + "\";")
+    return GET_MODULES_WITH_CALL(callName=callName, whiteList=whiteList, blackList=blackList)
+    
+bsUtils._getModulesWithCall = bs._getModulesWithCall = _getModulesWithCall

@@ -5,7 +5,7 @@ env = bs.getEnvironment()
 
 # written by drov.drov
 
-debug = 1
+debug = 0
 
 STANDART_SETTINGS={"lobby_connect_menu": False, 
     "show_game_name": True, 

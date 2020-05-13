@@ -1,10 +1,14 @@
 from bs import *
-from .advanced import Settings
-from .zeroGame import ZeroGameFactory
-from .bombs import BombFactory as HardCoreBombFactory
-from .powerups import PowerupFactory as HardCorePowerupFactory
-from .utils import get_tint, get_normal_tint, get_motion, \
-    set_motion, set_tint, get_account_string
+try: from .advanced import Settings
+except: pass
+try: from .zeroGame import ZeroGameFactory
+except: pass
+try: from .bombs import BombFactory as HardCoreBombFactory
+except: pass
+try: from .powerups import PowerupFactory as HardCorePowerupFactory
+except: pass
+try: from .utils import get_tint, get_normal_tint, get_motion, set_motion, set_tint, get_account_string
+except: pass
 from os.path import sep
 from json import load as load_json
 
