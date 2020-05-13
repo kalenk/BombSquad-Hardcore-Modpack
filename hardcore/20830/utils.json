@@ -1,0 +1,234 @@
+# -*- coding: utf-8 -*-
+import bs, bsSpaz; import random
+from bsMainMenu import MainMenuActivity; from bsTutorial import TutorialActivity
+try: import skins
+except ImportError: SKINS_ENABLED = False
+else: SKINS_ENABLED = True
+try: from .advanced import Settings
+except ImportError: SETTINGS_ENABLED = False
+else:
+    SETTINGS_ENABLED = True
+    from .advanced import format_spaces, text_split
+from inspect import isclass as is_class
+try: from .bombs import NEW_BOMBS
+except ImportError: NEW_BOMBS = []
+from bsPowerup import PowerupFactory
+from bsMap import _maps, getFilteredMapName
+
+# written by drov.drov
+
+BOTS = [i for i in dir(bsSpaz) if is_class(eval("bsSpaz."+i)) and issubclass(eval("bsSpaz."+i), bsSpaz.SpazBot)]
+BOMBS = ['ice', 'impact', 'landMine', 'normal', 'sticky', 'tnt'] + NEW_BOMBS
+POWERUPS = []
+
+def get_powerups():
+    global POWERUPS
+    if len(POWERUPS) > 0: return
+    f = PowerupFactory()
+    try: f.getRandomPowerupType()
+    except: pass
+    POWERUPS = set(f._powerupDist); del f
+    return POWERUPS
+
+if SKINS_ENABLED: SKINS = set([skins.get_format_skin_name(i) for i in bsSpaz.appearances.keys()]+["tnt", "shard", "invincible", "delete"])
+else: SKINS = []
+
+LANG = bs.getLanguage()
+if SETTINGS_ENABLED: SETTINGS_ENABLED = (hasattr(advanced, "get_settings") and hasattr(advanced, "set_settings") and hasattr(advanced, "_settings"))
+
+MAPS = _maps
+MAPS_TINT = {
+    "Doom Shroom": (0.82, 1.10, 1.15), 
+    "Hockey Stadium": (1.2,1.3,1.33),
+    "Football Stadium": (1.3, 1.2, 1.0), 
+    "Big G": (1.1, 1.2, 1.3), 
+    "Roundabout": (1.0, 1.05, 1.1), 
+    "Monkey Face": (1.1, 1.2, 1.2), 
+    "Bridgit": (1.1, 1.2, 1.3), 
+    "Zigzag": (1.0, 1.15, 1.15), 
+    "The Pad": (1.1, 1.1, 1.0), 
+    "Lake Frigid": (1, 1, 1), 
+    "Tip Top": (0.8, 0.9, 1.3), 
+    "Crag Castle": (1.15, 1.05, 0.75), 
+    "Tower D":(1.15, 1.11, 1.03), 
+    "Happy Thoughts": (1.3, 1.23, 1.0), 
+    "Step Right Up": (1.2, 1.1, 1.0), 
+    "Courtyard": (1.2, 1.17, 1.1), 
+    "Rampage": (1.2, 1.1, 0.97)
+}
+for m in MAPS: 
+    if m not in MAPS_TINT: MAPS_TINT.update({m: (1, 1, 1)})
+
+TINT = None
+MOTION = None
+NORMALIZED_TINT = None
+def get_normal_tint():
+    global NORMALIZED_TINT
+    activity = bs.getActivity()
+    if activity is None: raise Exception("no current activity")
+    try: name = getFilteredMapName(activity._mapType.name)
+    except Exception: name = getFilteredMapName("Football Stadium")
+    finally: 
+        NORMALIZED_TINT = tint = MAPS_TINT.get(name, (1, 1, 1))
+        return tint  
+
+def get_motion():
+    global MOTION
+    activity = bs.getActivity()
+    if activity is None: raise Exception("no current activity")
+    try: 
+        if not hasattr(activity, '_motion'): motion = getattr(activity, 'settings', {}).get("Epic Mode", False)
+        else: motion = activity._motion
+    except Exception: motion = None
+    finally: 
+        if motion is None: raise Exception()
+        MOTION = motion
+        return motion
+
+def get_tint():
+    global TINT
+    activity = bs.getActivity()
+    if activity is None: raise Exception("no current activity")
+    try: tint = getattr(activity, '_tint', None)
+    except Exception: tint = None
+    finally: 
+        if tint is None: tint = get_normal_tint()
+        TINT = tint
+        return tint
+
+def set_tint(tint):
+    global TINT
+    if not isisntance(tint, tuple) or len(tint) != 3: raise ValueError()
+    activity = bs.getActivity()
+    if activity is None: raise Exception("no current activity")
+    activity._tint = TINT = tint
+
+def set_motion(motion):
+    global MOTION
+    if not isinstance(motion, bool) and not isinstance(motion, int): raise ValueError()
+    activity = bs.getActivity()
+    if activity is None: raise Exception("no current activity")
+    activity._motion = MOTION = bool(motion)
+
+def send_message(msg):
+    if len(bsInternal._getGameRoster()) < 1:
+        if bsUI.gPartyWindow is not None and bsUI.gPartyWindow() is not None:
+            with bs.Context("UI"): bsUI.gPartyWindow()._addMsg(msg=msg, color=(1, 1, 1))
+    else: bsInternal._chatMessage(msg)
+
+def is_num(num="0"):
+    try: int(num)
+    except Exception: return False
+    else: return True
+
+def check_account(account=None):
+    return account is not None and is_account(account=account)
+
+def is_account(account, return_account=False):
+    def check(account):
+        if isinstance(account, unicode):
+            for icon in ['googlePlusLogo', 'gameCenterLogo', 'gameCircleLogo', \
+                'ouyaLogo', 'localAccount', 'alibabaLogo', \
+                'oculusLogo', 'nvidiaLogo']:
+                if bs.getSpecialChar(icon) in account: return True
+        return False
+    if isinstance(account, str):
+        try: account = account.decode('utf-8')
+        except UnicodeEncodeError: account = unicode(account)
+    result = check(account=account)
+    if return_account: return account if result else None
+    else: return result
+
+def get_account_string(arg):
+    a = bsInternal._getForegroundHostActivity()
+    if arg is not None:
+        account = is_account(arg, True)
+        if account is not None: return account
+        if a is not None and is_num(arg) and hasattr(a, "players") and len(a.players) > int(arg): arg = a.players[int(arg)] 
+        if isinstance(arg, bs.Player) and hasattr(arg, 'getInputDevice'): 
+            arg = arg.getInputDevice()
+            if hasattr(arg, '_getAccountName'): return arg._getAccountName(True)
+    return None
+    
+def find_players_and_bots():
+    import inspect
+    result=[]
+    for i in bsInternal.getNodes(): 
+        if hasattr(i, "getNodeType") and str(i.getNodeType()) == "spaz": 
+            i = i.getDelegate()
+            if isinstance(i, bsSpaz.PlayerSpaz) or (inspect.isclass(i.__class__) and issubclass(i.__class__, bsSpaz.SpazBot)): result.append(i)
+    return result
+
+def dayCycle():
+    if bsInternal._getForegroundHostActivity() is not None:
+        tint = get_tint()
+        anim={0: tint, 7500:(1.25, 1.21, 1.075),
+            30000: (1.25, 1.21, 1.075), 57500: (1.1, 0.86, 0.74),
+            67500: (1.1, 0.86, 0.74), 90000: (0, 0.27, 0.51),
+            120000: (0, 0.27, 0.51), 142500: (1.3, 1.06, 1.02),
+            157500: (1.3, 1.06, 1.02), 180000: (1.3, 1.25, 1.2),
+            195500: (1.3, 1.25, 1.2), 220000: tint}
+        bsUtils.animateArray(bs.getSharedObject("globals"), "tint", 3, anim, loop=True)
+        
+def bigger_than_zero(num=''):
+    if not isinstance(num, int) and is_num(num=num): num = int(num)
+    if isinstance(num, int) and num > 0: return True
+    return False
+
+class Box(bs.Actor):
+    def __init__(self, pos=(0, 5, 0), scale=1.35, owner=None):
+        self.owner = owner
+        bs.Actor.__init__(self)
+        box_material = bs.Material()
+        box_material.addActions(
+            conditions=((('weAreYoungerThan', 0),'or',('theyAreYoungerThan', 0)),
+            'and', ('theyHaveMaterial', bs.getSharedObject('objectMaterial'))),
+            actions=(('modifyNodeCollision', 'collide', True)))
+        box_material.addActions(conditions=('theyHaveMaterial',
+            bs.getSharedObject('pickupMaterial')),
+            actions=(('modifyPartCollision', 'useNodeCollide', False)))
+        box_material.addActions(actions=('modifyPartCollision','friction', 1000))
+        self.node = bs.newNode('prop', delegate=self, attrs={
+            'position': pos,
+            'velocity': (0, 0, 0),
+            'model': bs.getModel('tnt'),
+            'modelScale': scale,
+            'body': 'crate',
+            'bodyScale': scale,
+            'shadowSize': 0.26 * scale,
+            'colorTexture': bs.getTexture(random.choice(["flagColor", "frameInset"])),
+            'reflection': 'soft',
+            'reflectionScale': [0.23],
+            'materials': (bs.getSharedObject('footingMaterial'), bs.getSharedObject('objectMaterial'))})
+
+    def getFactory(cls):
+        return None
+
+    def handleMessage(self, msg):
+        self._handleMessageSanityCheck()
+        if isinstance(msg, bs.PickedUpMessage):
+            if self.owner is None:
+                self.owner=msg.node
+                self.node.handleMessage(ConnectToPlayerMessage(msg.node))
+            else:
+                self.owner=None
+                self.node.connectAttr('position', self.node, 'position')
+        elif isinstance(msg, ConnectToPlayerMessage):
+            if msg.player is not None:
+                if msg.player.exists():
+                    self.owner=msg.player
+                    self.owner.connectAttr('position', self.node, 'position')
+        elif isinstance(msg, bs.OutOfBoundsMessage): self.node.delete()
+        elif isinstance(msg, bs.DieMessage): self.node.delete()
+        elif isinstance(msg, bs.HitMessage):
+            self.node.handleMessage("impulse", msg.pos[0], msg.pos[1], msg.pos[2], msg.velocity[0], msg.velocity[1],
+                msg.velocity[2], msg.magnitude * 0.2, msg.velocityMagnitude, msg.radius, 0,
+                msg.forceDirection[0], msg.forceDirection[1], msg.forceDirection[2])
+        else: bs.Actor.handleMessage(self, msg)
+
+class ConnectToPlayerMessage(object):
+    def __init__(self, player):
+        self.player=player
+
+import bsUtils
+bsUtils._havePro = bsUtils._haveProOptions = lambda : True
