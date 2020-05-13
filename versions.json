@@ -1,6 +1,15 @@
 {
     "last_version": 20830, 
     "20830": {
-        "hardcore/test.download": "downloads/test.py"
+        "hardcore/20830/advanced.json": "hardcore:advanced.py",
+        "hardcore/20830/hardcore.json": "hardcore:__init__.py",
+        "hardcore/20830/test.json": "hardcore:test.py",
+        "hardcore/20830/bombs.json": "hardcore:bombs.py",
+        "hardcore/20830/powerups.json": "hardcore:powerups.py",
+        "hardcore/20830/zerogame.json": "hardcore:zerogame.py",
+        "hardcore/20830/utils.json": "hardcore:utils.py",
+        "hardcore/20830/zerogame.json": "hardcore:zerogame.py",
+        "hardcore/20830/ip.json": "hardcore:ip.py",
+        "hardcore/20830/data.json": "hardcoreModpack.data"
     }
 }
