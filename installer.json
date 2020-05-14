@@ -1,0 +1,297 @@
+# -*- coding: utf-8 -*-
+import bs, httplib, urllib2
+import os, shutil; import json
+from inspect import isclass as is_class
+from bsUI import ConfirmWindow as ConfirmWindowUI
+import time
+
+class ConfirmWindow(ConfirmWindowUI):
+    def __init__(self, text="Are you sure?", description="Bruh", 
+        action=None, cancelAction=None, width=360, 
+        height=100, cancelIsSelected=False, color=(1, 1, 1), 
+        textScale=1.0, okText=None, cancelText=None, originWidget=None):
+        cancelButton=True
+        self._cancelAction = cancelAction
+        spacing = int(height/7)
+        ConfirmWindowUI.__init__(self, text=text, action=action,
+            width=width, height=height, cancelIsSelected=cancelIsSelected,
+            cancelButton=cancelButton, color=color, textScale=textScale, 
+            okText=okText, cancelText=cancelText, originWidget=originWidget)
+        for t in self._rootWidget.getChildren():
+            if t.getWidgetType() == "text" and t.exists(): t.delete()
+        spacing = spacing * 0.5
+        t = bs.textWidget(parent=self._rootWidget,
+            position=(width*0.5, height-spacing),
+            size=(0, 0), hAlign="center", vAlign="center",
+            text=text, scale=textScale, color=color,
+            maxWidth=width*0.9, maxHeight=height-spacing)
+        height = (height*0.5) + spacing*2
+        t = bs.textWidget(parent=self._rootWidget,
+            position=(width*0.5, height),
+            size=(0, 0), hAlign="center", vAlign="center",
+            text=description, scale=textScale, color=color,
+            maxWidth=width*0.9, maxHeight=height)
+    def _cancel(self):
+        if not self._rootWidget.exists(): return
+        ConfirmWindowUI._cancel(self)
+        if self._cancelAction is not None: self._cancelAction()
+
+class ReturnTimer(object):
+    def __init__(self, lenght, timeType='real', *args):
+        if lenght < 0: raise ValueError()
+        if timeType not in ['real','game']: raise ValueError()
+
+        self._call = args[0] if len(args) > 0 else None
+        self._args = args[1:] if len(args) > 1 else None
+
+        if timeType == 'real': self._context = 'UI'
+        elif timeType == 'game': self._context = bs.getActivity()
+        self._lenght = float(lenght/1000)
+    def call(self):
+        with bs.Context(self._context):
+            time.sleep(self._lenght)
+            if self._args is not None: return self._call(*self._args)
+            else: return self._call()
+        
+
+colorYellow = (1, 0.85, 0)
+colorRed = (1, 0, 0)
+colorGreen = (0, 1, 0)
+debug = 2
+
+env = bs.getEnvironment()
+platform = env['platform']
+USER_SCRIPTS_PATH = env['userScriptsDirectory']
+SYSTEM_SCRIPTS_PATH = env['systemScriptsDirectory']
+SYSTEM_DIR = os.path.sep.join(SYSTEM_SCRIPTS_PATH.split(os.path.sep)[0:-1])
+GITHUB_BRANCH = 'https://raw.githubusercontent.com/DrovGamedev/BombSquad-Hardcore-Modpack/master' if hasattr(httplib, 'HTTPS') and hasattr(urllib2, 'ssl') else 'http://raw.githack.com/DrovGamedev/BombSquad-Hardcore-Modpack/master'
+ERRORS = []
+DOWNLOADS = []
+del env
+
+def add_scripts():
+    import sys
+    for path in [SYSTEM_SCRIPTS_PATH, USER_SCRIPTS_PATH]:
+        path += os.path.sep + 'hardcore'
+        if not os.path.exists(path): return
+        sys.path.append(path)
+add_scripts()
+try: import hardcore
+except Exception as E: INSTALLED_VERSION = 0
+else: INSTALLED_VERSION = hardcore.get_version(True) if hasattr(hardcore, 'get_version') else 0
+if INSTALLED_VERSION is None: INSTALLED_VERSION = 0
+try: from hardcore.advanced import get_settings
+except: get_settings = lambda : {}
+SETTINGS = get_settings()
+if debug > 0: print("installed version: " + str(INSTALLED_VERSION))
+
+if debug > 0:
+    def error_log(error=None):
+        global ERRORS 
+        ERRORS.append(error)
+        if debug > 1: print(error)
+else: error_log = lambda error=None : True
+
+translates = {
+    "Russian": {
+        "installCompleted": "Установка успешно завершена!",
+        "appDataReset": "Сброс данных",
+        "appDataResetDesc": "Для более лучшей совместимости, требуется очистить данные игры.\nОчистить данные?",
+        "storage": "Хранение",
+        "storageDesc": "Кликни на \"Приложение\", если хочешь, \nчтобы данные модпака хранились в приложении.\nИначе, они будут находиться в папке модов",
+        "app": "Приложение",
+        "modsFolder": "Папка модов",
+        "downloadStartsNow": "Загрузка сейчас начнётся.\nПожалуйста, не выходи из игры.",
+        "successfullyDownloaded": "Успешно загружено: {}"},
+    "English": {
+        "installCompleted": "Modpack successfully installed!",
+        "appDataReset": "App Data Reset",
+        "appDataResetDesc": "For better compatibility, installer need to clear the game data.\nClear data?",
+        "storage": "Storage",
+        "storageDesc": "Click on \"App\", if you want to save modpack data in app.\Otherwise, they will be stored in the mods folder",
+        "app": "App",
+        "modsFolder": "Mods Folder",
+        "downloadStartsNow": "Download starts now.\nPlease, don\'t quit from game.",
+        "successfullyDownloaded": "Successfully downloaded: {}"}
+}
+translates = translates.get(bs.getLanguage(), translates["English"])
+
+def has_internet_connection():
+    import socket
+    s = socket.socket(2, 2)
+    s.settimeout(1.0)
+    try: s.connect(("8.8.8.8", 80))
+    except Exception: return False
+    else: s.close(); return True
+
+class _DownloadFinished(object):
+    def __init__(self, url, path, *args):
+        global DOWNLOADS
+        self.filename = path.split(os.path.sep)[-1]
+        DOWNLOADS.append(self.filename)
+        self.u = url
+        self.p = path
+        if debug > 0: print("Successfully downloaded: " + self.filename)
+        call = args[0] if len(args) > 0 else None
+        a = args[1:] if len(args) > 1 else None
+        if call is not None: 
+            if a is not None: call(*a)
+            else: call()
+
+def download(url, path, rewrite=True, *args):
+    if not rewrite and os.path.exists(path): return
+    if debug > 0: print("try to download from url: " + url)
+    def open_file(path):
+        errors = 0 
+        try: f = open(path, 'w+')
+        except Exception as E: 
+            errors += 1; print("file open error;"); print(E)
+            if errors >= 5: return None
+            else: return ReturnTimer(1000, "real", open_file, path).call()
+        else: return f
+    def open_url(url): 
+        errors = 0
+        print(url)
+        try: u = urllib2.urlopen(url)
+        except Exception as E: 
+            errors += 1; print("url open error;"); print(E)
+            if errors >= 4: return None
+            else: return ReturnTimer(3000, "real", open_url, url).call()
+        else: return u
+    u = open_url(url=url)
+    f = open_file(path=path)
+    if u is None or f is None: print("download error;"); return
+    def on_end():
+        f.close(); u.close()
+        _DownloadFinished(url, path, *args)
+    def chunk():
+        try: c = u.read(1048576)
+        except Exception as E: 
+            c = None
+            if debug > 1:
+                for i in ["chunk lost: ", E, "try again..."]: print(i)
+        if c is None: bs.realTimer(3000, chunk); return
+        if not c: on_end(); return
+        f.write(c); f.flush()
+        bs.realTimer(1000, chunk)
+    chunk()
+
+def restart_msg():
+    if debug > 1: print("send restart message...")
+    bs.screenMessage(bs.Lstr(resource='settingsWindowAdvanced.mustRestartText').evaluate(), color = colorYellow)
+
+def update(version=None, ignore_old=True, download_path=None):
+    global DOWNLOADS
+    DOWNLOADS = []
+    if not has_internet_connection(): 
+        if debug > 1: print("no internet connection")
+        return
+    filename = 'versions.json'
+    def download_files(path, download_path):
+        if not os.path.exists(path): return
+        f = open(path, 'r')
+        try: data = json.load(f)
+        except: data = {}
+        if version is None and 'last_version' in data: v = str(data['last_version'])
+        elif str(version) in data: v = str(version)
+        else: return
+        if v not in data: return
+        if ignore_old and INSTALLED_VERSION >= int(v): 
+            if debug > 0: print("installed version equals or bigger than installing version; return")
+            return
+        url = (GITHUB_BRANCH+'/')
+        if download_path is None: download_path = USER_SCRIPTS_PATH
+        def check_end(paths, urls, c, cnt_end):
+            filename = paths[c].split(os.path.sep)[-1]
+            if filename == 'hardcoreModpack.data':
+                try: data = json.load(open(paths[c], 'r'))
+                except: data = {}
+                data.update({"path": download_path})
+                json.dump(data, open(paths[c], 'w+'), indent=4, sort_keys=True)
+            bs.screenMessage(translates["successfullyDownloaded"].format(filename), color=colorYellow)
+            if len(DOWNLOADS)-1 == cnt_end: 
+                restart_msg()
+            else: 
+                c += 1
+                bs.realTimer(500, bs.Call(download, urls[c], paths[c], True, check_end, paths, urls, c, cnt_end))
+        cnt_end = len(data[v])
+        paths = []
+        urls = []
+        for u in data[v]:
+            u = str(u.encode('utf-8')); file = str(data[v][u].encode('utf-8'))
+            file = file.replace(":", os.path.sep); u = (url + u)
+            filename = file.split(os.path.sep)[-1]
+            p = download_path + os.path.sep + file if file != 'installer.py' else USER_SCRIPTS_PATH + os.path.sep + file
+            dirs = p.replace(os.path.sep + filename, "")
+            if debug > 1: print("dir: " + dirs)
+            if not os.path.exists(dirs):
+                try: os.makedirs(dirs)
+                except: pass
+            if debug > 1: print("download path: " + p)
+            paths.append(p)
+            urls.append(u)
+        download(urls[0], paths[0], True, check_end, paths, urls, 0, cnt_end)
+    url, path = GITHUB_BRANCH + '/' + filename, USER_SCRIPTS_PATH + os.path.sep + filename
+    download(url, path, True, download_files, path, download_path)
+
+def delete_path(path=None):
+    path += os.path.sep + 'hardcore'
+    if not os.path.exists(path): return
+    try: shutil.rmtree(path)
+    except: pass
+
+def delete():
+    for path in [SYSTEM_SCRIPTS_PATH, USER_SCRIPTS_PATH]: delete_path(path=path)
+    delete_files = ['installer','script_replacer','ui','mainmenu']
+    temp_files = ['bsUI','bsMainMenu']
+    try: import hardcore
+    except: path = USER_SCRIPTS_PATH
+    else: path = hardcore.get_path()
+    for file in os.listdir(path):
+        f = '.'.join(file.split('.')[0:-1])
+        if f in delete_files:
+            try: os.remove(USER_SCRIPTS_PATH + os.path.sep + file)
+            except: pass
+    for file in os.listdir(SYSTEM_SCRIPTS_PATH):
+        f = '.'.join(file.split('.')[0:-1])
+        if f in temp_files and '.temp' in file:
+            p = SYSTEM_SCRIPTS_PATH + os.path.sep
+            try: shutil.move(p + file, p + file.replace('.temp', ''))
+            except: pass
+    restart_msg()
+
+def update_modpack():
+    def a(path=None):
+        try: import hardcore
+        except: pass
+        else: 
+            p = hardcore.get_path()
+            if p != path: delete_path(p)
+        bs.screenMessage(translates["downloadStartsNow"], color=colorYellow)
+        bs.realTimer(3000, bs.Call(update, None, True, path))
+    def reset():
+        if os.path.exists(SYSTEM_DIR): 
+            try: shutil.rmtree(SYSTEM_DIR)
+            except: pass
+        next_window()
+    def next_window():
+        ConfirmWindow(text=bs.Lstr(value=translates["storage"]),
+            description=bs.Lstr(value=translates["storageDesc"]),
+            height=175, action=c, cancelAction=b, 
+            okText=bs.Lstr(value=translates["app"]), 
+            cancelText=bs.Lstr(value=translates["modsFolder"]),
+            textScale=0.9)
+    def b():
+        a(USER_SCRIPTS_PATH)
+    def c():
+        a(SYSTEM_SCRIPTS_PATH)
+    ConfirmWindow(text=bs.Lstr(value=translates["appDataReset"]),
+        description=bs.Lstr(value=translates["appDataResetDesc"]),
+        height=150, action=reset, cancelAction=next_window)
+
+if INSTALLED_VERSION == 0: bs.realTimer(5000, bs.Call(update_modpack))
+elif SETTINGS.get("auto-update", False): 
+    try: import hardcore
+    except: path = None
+    else: path = hardcore.get_path()
+    bs.realTimer(5000, bs.Call(update, None, True, path))
