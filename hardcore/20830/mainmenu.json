@@ -40,7 +40,7 @@ def change_menu_music():
     music = {'newMenuMusic.ogg': 'menuMusic.ogg'}
     files = os.listdir(path)
     for file in files:
-        if file not in music: return
+        if file not in music: continue
         temp = SYSTEM_SCRIPTS_PATH.replace('scripts','audio') + os.path.sep + files[file]
         if os.path.exists(temp):
             try: shutil.move(temp, temp + '.temp')
@@ -88,7 +88,6 @@ class MainMenuActivity(bs.Activity):
     def onTransitionIn(self):
         global INITIAL_TRANSITION
         bs.Activity.onTransitionIn(self)
-        global gDidInitialTransition
         random.seed(123)
         self._logoNode = None
         self._customLogoTexName = None
@@ -267,9 +266,9 @@ class MainMenuActivity(bs.Activity):
            
     def _makeWord(self, word, x, y, scale=1.0, delay=0, vrDepthOffset=0, shadow=True):
         wordShadowObj = bs.NodeActor(bs.newNode('text', attrs={
-            'position':(x,y),
+            'position':(x, y),
             'big':True,
-            'color':(0.95, 1.55, 0.6+random.random()/2 if random.random()>0.6 else 0.6, 0.65),
+            'color':(0.95, 1.55, 0.6 + random.random() / 2 if random.random() > 0.6 else 0.6, 0.65),
             'tiltTranslate':0.11,
             'tiltTranslate':0.09,
             'opacityScalesShadow':False,
