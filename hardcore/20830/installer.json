@@ -1,20 +1,38 @@
+# -*- coding: utf-8 -*-
 import bs, httplib, urllib2
 import os, shutil; import json
 from inspect import isclass as is_class
-try: import hardcore
-except: INSTALLED_VERSION = 0
-else: INSTALLED_VERSION = hardcore.get_version(True) if hasattr(hardcore, 'get_version') else 0
-if INSTALLED_VERSION is None: INSTALLED_VERSION = 0
-try: from hardcore.advanced import get_settings
-except: get_settings = lambda : {}
+from bsUI import ConfirmWindow as ConfirmWindowUI
 
-msg_color = (1, 0.85, 0)
-debug = 1
+class ConfirmWindow(ConfirmWindowUI):
+    def __init__(self, text="Are you sure?", description="Bruh", 
+        action=None, cancelAction=None, spacing=15, width=360, 
+        height=100, cancelIsSelected=False, color=(1, 1, 1), 
+        textScale=1.0, okText=None, cancelText=None, originWidget=None):
+        cancelButton=True
+        self._cancelAction = cancelAction
+        ConfirmWindowUI.__init__(self, text=text, action=action,
+            width=width, height=height, cancelIsSelected=cancelIsSelected,
+            cancelButton=cancelButton, color=color, textScale=textScale, 
+            okText=okText, cancelText=cancelText, originWidget=originWidget)
+        t = bs.textWidget(parent=self._rootWidget,
+            position=(width*0.5, (height-5-(height-75)*0.5)-spacing),
+            size=(0, 0), hAlign="center", vAlign="center",
+            text=description, scale=textScale, color=color,
+            maxWidth=width*0.9, maxHeight=height-75-spacing)
+    def _cancel(self):
+        if not self._rootWidget.exists(): return
+        ConfirmWindowUI._cancel(self)
+        if self._cancelAction is not None: self._cancelAction()
+
+colorYellow = (1, 0.85, 0)
+colorRed = (1, 0, 0)
+colorGreen = (0, 1, 0)
+debug = 2
 
 env = bs.getEnvironment()
 platform = env['platform']
 USER_SCRIPTS_PATH = env['userScriptsDirectory']
-DOWNLOAD_DIRECTORY_NAME = 'downloads'
 SYSTEM_SCRIPTS_PATH = env['systemScriptsDirectory'] if platform not in ['android'] else '/data/data/net.froemling.bombsquad/files/bombsquad_files/data/scripts'
 SYSTEM_DIR = os.path.sep.join(SYSTEM_SCRIPTS_PATH.split(os.path.sep)[0:-1])
 GITHUB_BRANCH = 'https://github.com/DrovGamedev/BombSquad-Hardcore-Modpack/raw/master' if hasattr(httplib, 'HTTPS') and hasattr(urllib2, 'ssl') else 'http://raw.githack.com/DrovGamedev/BombSquad-Hardcore-Modpack/master'
@@ -23,12 +41,50 @@ ERRORS = []
 DOWNLOADS = []
 del env
 
+def add_scripts():
+    import sys
+    for path in [SYSTEM_SCRIPTS_PATH, USER_SCRIPTS_PATH]:
+        path += os.path.sep + 'hardcore'
+        if not os.path.exists(path): return
+        sys.path.append(path)
+add_scripts()
+try: import hardcore
+except: INSTALLED_VERSION = 0
+else: INSTALLED_VERSION = hardcore.get_version(True) if hasattr(hardcore, 'get_version') else 0
+if INSTALLED_VERSION is None: INSTALLED_VERSION = 0
+try: from hardcore.advanced import get_settings
+except: get_settings = lambda : {}
+
 if debug > 0:
     def error_log(error=None):
         global ERRORS 
         ERRORS.append(error)
         if debug > 1: print(error)
 else: error_log = lambda error=None : True
+
+translates = {
+    "Russian": {
+        "installCompleted": "Установка успешно завершена!",
+        "appDataReset": "Сброс данных",
+        "appDataResetDesc": "Для более лучшей совместимости, требуется очистить данные игры.\nОчистить данные?",
+        "storage": "Хранение",
+        "storageDesc": "Кликни на \"Приложение\", если хочешь, \nчтобы данные модпака хранились в приложении.\nИначе, они будут находиться в папке модов",
+        "app": "Приложение",
+        "modsFolder": "Папка модов",
+        "downloadStartsNow": "Загрузка сейчас начнётся.\nПожалуйста, не выходи из игры.",
+        "successfullyDownloaded": "Успешно загружено: {}"},
+    "English": {
+        "installCompleted": "Modpack successfully installed!",
+        "appDataReset": "App Data Reset",
+        "appDataResetDesc": "For better compatibility, installer need to clear the game data.\nClear data?",
+        "storage": "Storage",
+        "storageDesc": "Click on \"App\", if you want to save modpack data in app.\Otherwise, they will be stored in the mods folder",
+        "app": "App",
+        "modsFolder": "Mods Folder",
+        "downloadStartsNow": "Download starts now.\nPlease, don\'t quit from game.",
+        "successfullyDownloaded": "Successfully downloaded: {}"}
+}
+translates = translates.get(bs.getLanguage(), translates["English"])
 
 def has_internet_connection():
     import socket
@@ -45,10 +101,7 @@ class _DownloadFinished(object):
         DOWNLOADS.append(self.filename)
         self.u = url
         self.p = path
-        if debug > 0:
-            txt = "Successfully downloaded: " + self.filename
-            print(txt)
-            if debug > 1: bs.screenMessage(txt, color=msg_color)
+        if debug > 0: print("Successfully downloaded: " + self.filename)
         if call is not None: call(*args)
 
 def download(url, path, rewrite=True, end_call=None, *args):
@@ -73,25 +126,19 @@ def download(url, path, rewrite=True, end_call=None, *args):
         bs.realTimer(1000, chunk)
     chunk()
 
-def md():
-    if debug > 0: print("creating downloads dir...")
-    path = USER_SCRIPTS_PATH + os.path.sep + DOWNLOAD_DIRECTORY_NAME
-    if not os.path.exists(path): os.makedirs(path)
-    if debug > 0: print("dir created")
-
 def restart_msg():
     if debug > 1: print("send restart message...")
-    bs.screenMessage(bs.Lstr(resource='settingsWindowAdvanced.mustRestartText').evaluate(), color = msg_color)
+    bs.screenMessage(bs.Lstr(resource='settingsWindowAdvanced.mustRestartText').evaluate(), color = colorYellow)
 
-def update(version=None, ignore_old=True):
+def update(version=None, ignore_old=True, download_path=None):
     global DOWNLOADS
     DOWNLOADS = []
     if not has_internet_connection(): 
         if debug > 1: print("no internet connection")
         return
-    filename = 'versions.json'; md()
+    filename = 'versions.json'
     def get_files(*args):
-        path = args[0]; url = args[1]
+        path = args[0]; download_path = args[1]
         if not os.path.exists(path): return
         f = open(path, 'r')
         try: data = json.load(f)
@@ -102,49 +149,50 @@ def update(version=None, ignore_old=True):
         if v not in data: return
         if ignore_old and INSTALLED_VERSION >= v: return
         url = (GITHUB_BRANCH+'/')
-        path = (USER_SCRIPTS_PATH + os.path.sep); temp = (SYSTEM_SCRIPTS_PATH + os.path.sep)
-        def update_file(*args):
-            src = args[0]; dst = args[1]; cnt_end = args[2]
-            for c in args: print("args: " + str(c))
-            if os.path.exists(dst): 
-                try: os.remove(dst)
-                except: pass
-            try: shutil.move(src, dst)
-            except: pass
-            print("update " + dst)
+        if download_path is None: download_path = USER_SCRIPTS_PATH
+        def check_end(*args):
+            paths = args[0]; urls = args[1]
+            c = args[2]; cnt_end = args[3]
             if len(DOWNLOADS)-1 == cnt_end: 
                 restart_msg()
-                t = USER_SCRIPTS_PATH + os.path.sep + 'installer.py'
-                if os.path.exists(t): os.remove(t)
+            else: 
+                bs.screenMessage(translates["successfullyDownloaded"].format(paths[c].split(os.path.sep)[-1]), color=colorYellow)
+                c += 1
+                bs.realTimer(500, bs.Call(download, urls[c], paths[c], True, check_end, paths, urls, c, cnt_end))
         cnt_end = len(data[v])
+        paths = []
+        urls = []
         for u in data[v]:
             u = str(u.encode('utf-8')); file = str(data[v][u].encode('utf-8'))
             file = file.replace(":", os.path.sep); u = (url + u)
-            if debug > 0: 
-                txt = "try to download from url: " + u
-                print(txt)
-                if debug > 1: bs.screenMessage(txt, color=msg_color)
             filename = file.split(os.path.sep)[-1]
-            p = path + DOWNLOAD_DIRECTORY_NAME + os.path.sep + file; t = temp + file
-            for c in [p, t]:
-                c = c.replace(os.path.sep + filename, "")
-                if debug > 1: print("dir: " + c)
-                if not os.path.exists(c):
-                    try: os.makedirs(c)
-                    except: pass
-            if debug > 1:
-                for r in ["download path: " + p, "temp_path: " + t]: print(r)
-            download(u, p, True, update_file, p, t, cnt_end)
+            p = download_path + os.path.sep + file if file != 'installer.py' else USER_SCRIPTS_PATH + os.path.sep + file
+            dirs = p.replace(os.path.sep + filename, "")
+            if debug > 1: print("dir: " + dirs)
+            if not os.path.exists(dirs):
+                try: os.makedirs(dirs)
+                except: pass
+            if debug > 1: print("download path: " + p)
+            paths.append(p)
+            urls.append(u)
+            print(u)
+        if debug > 0: 
+            print("urls: " + str(urls))
+            print("paths: " + str(paths))
+            for path in paths: print(str(path))
+            print("try to download from url: " + u)
+        download(urls[0], paths[0], True, check_end, paths, urls, 0, cnt_end)
         
-    if debug > 0: print("try to download "+filename)
-    url, path = GITHUB_BRANCH+'/'+filename, USER_SCRIPTS_PATH+os.path.sep+filename
-    download(url, path, True, get_files, path, url)
+    if debug > 0: print("try to download " + filename)
+    url, path = GITHUB_BRANCH + '/' + filename, USER_SCRIPTS_PATH + os.path.sep + filename
+    download(url, path, True, get_files, path, download_path)
 
 def delete():
-    path = SYSTEM_SCRIPTS_PATH + os.path.sep + 'hardcore'
-    if not os.path.exists(path): return
-    try: shutil.rmtree(path)
-    except: pass
+    for path in [SYSTEM_SCRIPTS_PATH, USER_SCRIPTS_PATH]:
+        path += os.path.sep + 'hardcore'
+        if not os.path.exists(path): return
+        try: shutil.rmtree(path)
+        except: pass
     delete_files = ['installer.py','script_replacer.py','ui.py','mainmenu.py']
     temp_files = ['bsUI.temp','bsMainMenu.temp']
     for file in os.listdir(USER_SCRIPTS_PATH):
@@ -158,10 +206,28 @@ def delete():
             except: pass
     restart_msg()
 
-def update_modpack(version=None, ignore_old=True):
-    def a():
-        bs.screenMessage("download starts now\nplease, don\'t quit from game", color=msg_color)
-        bs.realTimer(3000, bs.Call(update, version, ignore_old))
-    bs.realTimer(5000, bs.Call(a))
+def update_modpack():
+    def a(path=None):
+        bs.screenMessage(translates["downloadStartsNow"], color=colorYellow)
+        bs.realTimer(3000, bs.Call(update, None, True, path))
+    def reset():
+        if os.path.exists(SYSTEM_DIR): 
+            try: shutil.rmtree(SYSTEM_DIR)
+            except: pass
+        next_window()
+    def next_window():
+        ConfirmWindow(text=bs.Lstr(value=translates["storage"]),
+            description=bs.Lstr(value=translates["storageDesc"]),
+            height=150, action=c, cancelAction=b, 
+            okText=bs.Lstr(value=translates["app"]), 
+            cancelText=bs.Lstr(value=translates["modsFolder"]),
+            textScale=0.9)
+    def b():
+        a(USER_SCRIPTS_PATH)
+    def c():
+        a(SYSTEM_SCRIPTS_PATH)
+    ConfirmWindow(text=bs.Lstr(value=translates["appDataReset"]),
+        description=bs.Lstr(value=translates["appDataResetDesc"]),
+        height=150, action=reset, cancelAction=next_window)
 
-if SETTINGS.get("auto-update", True): update_modpack()
+if SETTINGS.get("auto-update", True): bs.realTimer(5000, bs.Call(update_modpack))
