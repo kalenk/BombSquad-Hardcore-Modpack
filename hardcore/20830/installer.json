@@ -140,6 +140,7 @@ class _DownloadFinished(object):
 
 def download(url, path, rewrite=True, *args):
     if not rewrite and os.path.exists(path): return
+    if debug > 0: print("try to download from url: " + url)
     def open_file(path):
         errors = 0 
         try: f = open(path, 'w+')
@@ -195,7 +196,7 @@ def update(version=None, ignore_old=True, download_path=None):
         elif str(version) in data: v = str(version)
         else: return
         if v not in data: return
-        if ignore_old and INSTALLED_VERSION >= v: 
+        if ignore_old and INSTALLED_VERSION >= int(v): 
             if debug > 0: print("installed version equals or bigger than installing version; return")
             return
         url = (GITHUB_BRANCH+'/')
@@ -229,10 +230,7 @@ def update(version=None, ignore_old=True, download_path=None):
             if debug > 1: print("download path: " + p)
             paths.append(p)
             urls.append(u)
-        if debug > 0: print("try to download from url: " + u)
         download(urls[0], paths[0], True, check_end, paths, urls, 0, cnt_end)
-        
-    if debug > 0: print("try to download " + filename)
     url, path = GITHUB_BRANCH + '/' + filename, USER_SCRIPTS_PATH + os.path.sep + filename
     download(url, path, True, download_files, path, download_path)
 
