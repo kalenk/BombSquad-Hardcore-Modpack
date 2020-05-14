@@ -214,10 +214,12 @@ def update(version=None, ignore_old=True, download_path=None):
                 try: import script_replacer
                 except: pass
                 else: script_replacer._getModulesWithCall("bruh")
-                # replace system scripts
+                print("system scripts replaced")
                 add_scripts()
+                print("add hardcore module")
                 modules = sys.modules
-                for name in modules: 
+                for name in modules:
+                    print("reload "+name)
                     try: reload(modules[name])
                     except: pass
             else: 
@@ -270,6 +272,8 @@ def delete():
     restart_msg()
 
 def update_modpack():
+    def d(path):
+        bs.realTimer(3000, bs.Call(update, None, True, path))
     def a(path=None):
         try: import hardcore
         except: pass
@@ -277,7 +281,8 @@ def update_modpack():
             p = hardcore.get_path()
             if p != path: delete_path(p)
         bs.screenMessage(translates["downloadStartsNow"], color=colorYellow)
-        bs.realTimer(3000, bs.Call(update, None, True, path))
+        import bsInternal
+        bsInternal._addCleanFrameCallback(bs.Call(d, path))
     def reset():
         if os.path.exists(SYSTEM_DIR): 
             try: shutil.rmtree(SYSTEM_DIR)

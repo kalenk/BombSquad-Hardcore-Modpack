@@ -17,6 +17,7 @@ env = bs.getEnvironment()
 SYSTEM_SCRIPTS_PATH = env['systemScriptsDirectory']
 USER_SCRIPTS_PATH = env['userScriptsDirectory']
 PLATFORM = env['platform']
+SUBPLATFORM = env['subplatform']
 VERSION = env['version']
 
 vrMode = env['vrMode']
@@ -26,16 +27,16 @@ debugBuild = env['debugBuild']
 testBuild = env['testBuild']
 kioskMode = env['kioskMode']
 
-INITIAL_TRANSITION = False
-
 del env
+
+INITIAL_TRANSITION = False
 
 def change_menu_music():
     # rename file menuMusic.ogg to menuMusic.temp
     # move new-menu-music file to ones
     if not PLATFORM == 'android': return
     try: import hardcore
-    except: path = USER_SCRIPTS_PATH
+    except: return
     else: path = hardcore.get_path()
     music = {'newMenuMusic.ogg': 'menuMusic.ogg'}
     files = os.listdir(path)
@@ -89,10 +90,8 @@ class MainMenuActivity(bs.Activity):
         global INITIAL_TRANSITION
         bs.Activity.onTransitionIn(self)
         random.seed(123)
-        self._logoNode = None
-        self._customLogoTexName = None
+        self._logoNode = self._customLogoTexName = None
         self._wordActors = []
-        forceShowBuildNumber = True
         if not toolbarTest:
             self.myName = bs.NodeActor(bs.newNode('text', attrs={
                 'vAttach':'bottom',
@@ -111,15 +110,15 @@ class MainMenuActivity(bs.Activity):
                 'flatness':1.0,
                 'shadow':1.0 if vrMode else 0.5,
                 'scale':(0.55 if interfaceType == 'small' or vrMode else 0.7),
-                'position': get_menu_text_pos,
+                'position': get_menu_text_pos(),
                 'vrDepth':-10,
                 'text':u'\xa9 ModPack is created by Daniil Rakhov'}))
+            text = "based on " + str(VERSION) + "\n"
             try: from hardcore import get_version
-            except: text = "HardCore ModPack"
-            else: text = "HardCore ModPack v." + get_version(False)
+            except: text += "HardCore ModPack"
+            else: text += ("HardCore ModPack v." + get_version(False))
             if debugBuild: text += " [debug]"
             if testBuild: text += " [test]"
-            if forceShowBuildNumber: text = "based on " + str(VERSION) + "\n" + text
             self.modpackVersion = bs.NodeActor(bs.newNode('text', attrs={
                 'vAttach':'bottom',
                 'hAttach':'right',
@@ -132,16 +131,10 @@ class MainMenuActivity(bs.Activity):
                 'position':(-260,10) if vrMode else (-10,30),
                 'text': text}))
             if not INITIAL_TRANSITION:
-                bs.animate(self.modpackVersion.node,'opacity',{0:0, 3000:0, 4000:1.0})
+                bs.animate(self.modpackVersion.node,'opacity', {0:0, 3000:0, 4000:1.0})
                 bs.animate(self.myName.node, 'opacity', {0:0, 2300:0, 3000:1.0})
                 bs.animate(self.moderName.node, 'opacity', {0:0, 2300:0, 3300:1.0})
-        self._hostIsNavigatingText = bs.NodeActor(bs.newNode('text', attrs={
-            'text':bs.Lstr(resource='hostIsNavigatingMenusText', subs=[('${HOST}', bsInternal._getAccountDisplayString())]),
-            'clientOnly':True,
-            'position':(0,-200),
-            'flatness':1.0,
-            'hAlign':'center'}))
-        self.betaInfo = self.betaInfo2 = None
+        self.betaInfo = None
         if testBuild and not kioskMode:
             self.betaInfo = bs.NodeActor(bs.newNode('text', attrs={
                 'vAttach':'center',
@@ -156,54 +149,48 @@ class MainMenuActivity(bs.Activity):
             if not INITIAL_TRANSITION: bs.animate(self.betaInfo.node, 'opacity', {0:0, 1300:0, 1800:1.0})
 
         model = bs.getModel('thePadLevel')
-        treesModel = bs.getModel('trees')
-        bottomModel = bs.getModel('thePadLevelBottom')
-        borModel = bs.getCollideModel('thePadLevelCollide')
-        testColorTexture = bs.getTexture('thePadLevelColor')
-        treesTexture = bs.getTexture('treesColor')
+        colorTexture = bs.getTexture('thePadLevelColor')
         bgTex = bs.getTexture('alwaysLandBGColor')
-        bgModel = bs.getModel('alwaysLandBG')
-        vrBottomFillModel = bs.getModel('thePadVRFillBottom')
-        vrTopFillModel = bs.getModel('thePadVRFillTop')
-
         g = bs.getSharedObject('globals')
         g.cameraMode = 'rotate'
         g.tint = (1.1, 1.1, 1.0)
+        g.ambientColor = (1.06, 1.04, 1.03)
+        g.vignetteInner = (0.99, 0.98, 0.98)
 
         self.bottom = bs.NodeActor(bs.newNode('terrain', attrs={
-            'model': bottomModel,
+            'model': bs.getModel('thePadLevelBottom'),
             'lighting':False,
             'reflection':'soft',
             'reflectionScale':[0.45],
-            'colorTexture': testColorTexture}))
+            'colorTexture': colorTexture}))
         self.node = bs.newNode('terrain', delegate=self, attrs={
-            'collideModel': borModel,
+            'collideModel': bs.getCollideModel('thePadLevelCollide'),
             'model': model,
-            'colorTexture': testColorTexture,
+            'colorTexture': colorTexture,
             'materials': [bs.getSharedObject('footingMaterial')]})
         self.vrBottomFill = bs.NodeActor(bs.newNode('terrain', attrs={
-            'model':vrBottomFillModel,
+            'model':bs.getModel('thePadVRFillBottom'),
             'lighting':False,
             'vrOnly':True,
-            'colorTexture': testColorTexture}))
+            'colorTexture': colorTexture}))
         self.vrTopFill = bs.NodeActor(bs.newNode('terrain', attrs={
-            'model': vrTopFillModel,
+            'model': bs.getModel('thePadVRFillTop'),
             'vrOnly': True,
             'lighting': False,
             'colorTexture': bgTex}))
         self.terrain = bs.NodeActor(bs.newNode('terrain', attrs={
             'model': model,
-            'colorTexture': testColorTexture,
+            'colorTexture': colorTexture,
             'reflection': 'soft',
             'reflectionScale': [0.3]}))
         self.trees = bs.NodeActor(bs.newNode('terrain', attrs={
-            'model': treesModel,
+            'model': bs.getModel('trees'),
             'lighting': False,
             'reflection': 'char',
             'reflectionScale': [0.1],
-            'colorTexture': treesTexture}))
+            'colorTexture': bs.getTexture('treesColor')}))
         self.bg = bs.NodeActor(bs.newNode('terrain', attrs={
-            'model': bgModel,
+            'model': bs.getModel('alwaysLandBG'),
             'color': (0.92,0.91,0.9),
             'lighting': False,
             'background': True,
@@ -213,7 +200,7 @@ class MainMenuActivity(bs.Activity):
         self._updateTimer = bs.Timer(2000, bs.Call(self._update, False), repeat=True)
         self._update(True)
         bs.gameTimer(55000, bs.Call(fireworks, self))
-        bsUtils.animateArray(bs.getSharedObject("globals"), "tint", 3, {0:(1.1,1.1,1.0), 7500:(1.25, 1.21, 1.075), 30000:(1.25, 1.21, 1.075), \
+        bs.animateArray(g, "tint", 3, {0:(1.1,1.1,1.0), 7500:(1.25, 1.21, 1.075), 30000:(1.25, 1.21, 1.075), \
             57500:(1.1, 0.86, 0.74), 67500:(1.1, 0.86, 0.74), \
             90000:(0, 0.27, 0.51), 120000:(0, 0.27, 0.51), 142500:(1.3, 1.06, 1.02), \
             157500:(1.3, 1.06, 1.02), 180000:(1.3, 1.25, 1.2), 195500:(1.3, 1.25, 1.2), \
@@ -223,8 +210,7 @@ class MainMenuActivity(bs.Activity):
         with bs.Context('UI'):
             try: mainWindow = bsUI.gMainWindow
             except Exception: mainWindow = None
-            if kioskMode:
-                bsUI.uiGlobals['mainMenuWindow'] = bsUI.KioskWindow().getRootWidget()
+            if kioskMode: bsUI.uiGlobals['mainMenuWindow'] = bsUI.KioskWindow().getRootWidget()
             else:
                 if mainWindow == 'Gather': bsUI.uiGlobals['mainMenuWindow'] = bsUI.GatherWindow(transition=None).getRootWidget()
                 elif mainWindow == 'Watch': bsUI.uiGlobals['mainMenuWindow'] = bsUI.WatchWindow(transition=None).getRootWidget()
@@ -239,85 +225,52 @@ class MainMenuActivity(bs.Activity):
         INITIAL_TRANSITION = True
 
     def _update(self, forceUpdate=False):
-        if not self.settings.get("in_menu_author_name", True): bs.animate(self.moderName.node, 'opacity', {0: self.moderName.node.opacity, 500: 0.0})
+        if not self.settings.get("in_menu_author_name", True) and hasattr(self, 'moderName'): 
+            bs.animate(self.moderName.node, 'opacity', {0: self.moderName.node.opacity, 500: 0.0})
         else: change_menu_text_pos(self)
         l = bs.getLanguage()
         if l != self._language:
             self._language = l
-            env = bs.getEnvironment()
-            y = 20
-            gScale = 1.1
             self._wordActors = []
-            baseDelay = 1000
-            delay = baseDelay
-            delayInc = 20
-            baseX = -170
-            x = baseX-20
-            spacing = 55*gScale
-            for shadow in (True, False):
-                w = {'H': [-15, -23], 'a': [38, -23], 'r': [88, -23], 'd': [138, -23], \
-                    'C': [188, -23], 'o': [238, -23], 'r': [288, -23], 'e': [338, -23], \
-                    '◉': [162, -98]}
-                m = -500
-                for letter in w:
-                    p = w[letter]
-                    self._makeWord('H', x+p[0], y+p[1], scale=1.3*gScale, delay=delay+m, vrDepthOffset=3, shadow=True)
-                    m += 100
+            word = (('H', (-205, -3)), ('a', (-152, -3)), ('r', (-102, -3)), ('d', (-52, -3)),
+                ('C', (-2, -3)), ('o', (48, -3)), ('r', (98, -3)), ('e', (148, -3)),
+                ('◉', (-28, -78)))
+            delay = 500 if not INITIAL_TRANSITION else 1000
+            for i, key in enumerate(word):
+                letter = key[0]; pos = key[1]
+                self._makeWord(letter, pos[0], pos[1], scale=1.43 if i != 8 else 3.3, delay=delay, vrDepthOffset=3, shadow=False)
+                delay += 100
            
-    def _makeWord(self, word, x, y, scale=1.0, delay=0, vrDepthOffset=0, shadow=True):
-        wordShadowObj = bs.NodeActor(bs.newNode('text', attrs={
-            'position':(x, y),
-            'big':True,
-            'color':(0.95, 1.55, 0.6 + random.random() / 2 if random.random() > 0.6 else 0.6, 0.65),
-            'tiltTranslate':0.11,
-            'tiltTranslate':0.09,
-            'opacityScalesShadow':False,
-            'shadow':0.01,
-            'vrDepth':-130,
-            'vAlign':'center',
-            'projectScale':0.97*scale,
-            'scale':1.0,
-            'text':word}))
-        self._wordActors.append(wordShadowObj)
+    def _makeWord(self, text, x, y, scale=1.0, delay=0, vrDepthOffset=0, shadow=True):
+        wordActor = bs.NodeActor(bs.newNode('text', attrs={
+            'position': (x, y),
+            'big': True,
+            'color': (0.95, 1.55, 0.6 + random.random() / 2 if random.random() > 0.6 else 0.6, 0.65) if not shadow else (0.0,0.0,0.2,0.08),
+            'tiltTranslate': 0.11,
+            'tiltTranslate': 0.09,
+            'shadow': 0.2 if shadow else 0.0,
+            'vrDepth': -130,
+            'vAlign': 'center',
+            'projectScale': 0.97 * scale,
+            'scale': 1.0,
+            'text': text}))
+        if shadow: wordActor.node.opacityScalesShadow = False
+        self._wordActors.append(wordActor)
         if not vrMode:
-            if not shadow: c = bs.newNode("combine", owner=wordObj.node, attrs={'size':2})
-            else: c = None
-            if shadow: c2 = bs.newNode("combine", owner=wordShadowObj.node, attrs={'size':2})
-            else: c2 = None
-            if not shadow: c.connectAttr('output',wordObj.node,'position')
-            if shadow: c2.connectAttr('output',wordShadowObj.node,'position')
-            keys = {}
-            keys2 = {}
+            c = bs.newNode("combine", owner=wordActor.node, attrs={'size': 2})
+            c.connectAttr('output', wordActor.node, 'position')
+            v = {"0": 720, "1": 1000}
             timeV = 0
-            for i in range(10):
-                val = x + random.uniform(0, 1)
-                val2 = x + random.uniform(-1,0)
-                keys[timeV*self._ts] = val
-                keys2[timeV*self._ts] = val2
-                timeV += 720
-            if c is not None: bs.animate(c, "input0", keys, loop=True)
-            if c2 is not None: bs.animate(c2, "input0", keys2, loop=True)
+            ts = 0.86
+            for inputNum in v:
+                keys = {}
+                for i in range(10):
+                    if inputNum == "0": keys[timeV * ts] = x + random.uniform(-1,0)
+                    elif inputNum == "1": keys[timeV * ts] = y + random.uniform(0, 1)
+                    timeV += v[inputNum]
+                bs.animate(c, "input"+inputNum, keys, loop=True)
+        bs.animate(wordActor.node, "projectScale", {0: 0, delay: 0, delay+210: scale})
 
-            keys = {}
-            keys2 = {}
-            timeV = 0
-            for i in range(10):
-                val = y+random.uniform(0, 1)
-                val2 = y+random.uniform(-1,0)
-                keys[timeV*self._ts] = val
-                keys2[timeV*self._ts] = val2
-                timeV += 1000
-            if c is not None: bs.animate(c,"input1",keys,loop=True)
-            if c2 is not None: bs.animate(c2,"input1",keys2,loop=True)
-
-        if not shadow:
-            bs.animate(wordObj.node, "projectScale", {delay:scale * 0, delay+210:scale})
-        else:
-            bs.animate(wordShadowObj.node, "projectScale", {delay:scale *0, delay+210:scale})
-
-    def _getCustomLogoTexName(self):
-        return None
-        
     def _startPreloads(self):
         if self.isFinalized(): return
         with bs.Context(self): _preload1()
@@ -367,12 +320,15 @@ def _preload4():
     bs.gameTimer(200, _preload5)
 
 def _preload5():
-    try: from hardcore.bombs import getFactory as bombsGetFactory
-    except: pass
-    else: bombsGetFactory()
-    try: from hardcore.powerups import getFactory as powerupGetFactory
-    except: pass
-    else: powerupsGetFactory()
+    try: import hardcore
+    except: return
+    else:
+        try: from hardcore.bombs import getFactory as bombsGetFactory
+        except: pass
+        else: bombsGetFactory()
+        try: from hardcore.powerups import getFactory as powerupGetFactory
+        except: pass
+        else: powerupsGetFactory()
 
 class SplashScreenActivity(bs.Activity):
 
@@ -420,9 +376,8 @@ class MainMenuSession(bs.Session):
     def __init__(self):
         bs.Session.__init__(self)
         self._locked = False
-        env = bs.getEnvironment()
         global gFirstRun
-        if env['platform'] == 'android' and env['subplatform'] == 'alibaba' and gFirstRun:
+        if PLATFORM == 'android' and SUBPLATFORM == 'alibaba' and gFirstRun:
             bsInternal._lockAllInput()
             self._locked = True
             self.setActivity(bs.newActivity(SplashScreenActivity))

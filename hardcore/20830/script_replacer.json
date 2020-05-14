@@ -24,7 +24,7 @@ def _getModulesWithCall(callName, whiteList=None, blackList=None):
             filename = mods[s] + d
             src = k + filename
             dst = k + filename + '.temp'
-            if os.path.exists(src):
+            if os.path.exists(src) and not os.path.exists(dst):
                 try: shutil.move(src, dst)
                 except: pass # pass operation-not-permitted errors
             try: shutil.move(p, SYSTEM_SCRIPTS_PATH + os.path.sep + filename)
