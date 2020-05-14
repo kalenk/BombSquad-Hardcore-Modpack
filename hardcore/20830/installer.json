@@ -36,7 +36,6 @@ USER_SCRIPTS_PATH = env['userScriptsDirectory']
 SYSTEM_SCRIPTS_PATH = env['systemScriptsDirectory'] if platform not in ['android'] else '/data/data/net.froemling.bombsquad/files/bombsquad_files/data/scripts'
 SYSTEM_DIR = os.path.sep.join(SYSTEM_SCRIPTS_PATH.split(os.path.sep)[0:-1])
 GITHUB_BRANCH = 'https://github.com/DrovGamedev/BombSquad-Hardcore-Modpack/raw/master' if hasattr(httplib, 'HTTPS') and hasattr(urllib2, 'ssl') else 'http://raw.githack.com/DrovGamedev/BombSquad-Hardcore-Modpack/master'
-SETTINGS = get_settings()
 ERRORS = []
 DOWNLOADS = []
 del env
@@ -54,6 +53,7 @@ else: INSTALLED_VERSION = hardcore.get_version(True) if hasattr(hardcore, 'get_v
 if INSTALLED_VERSION is None: INSTALLED_VERSION = 0
 try: from hardcore.advanced import get_settings
 except: get_settings = lambda : {}
+SETTINGS = get_settings()
 
 if debug > 0:
     def error_log(error=None):
