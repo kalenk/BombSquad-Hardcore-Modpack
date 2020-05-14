@@ -9,7 +9,7 @@ try: from .powerups import PowerupFactory as HardCorePowerupFactory
 except: pass
 try: from .utils import get_tint, get_normal_tint, get_motion, set_motion, set_tint, get_account_string
 except: pass
-from os.path import sep
+from os.path import sep, exists
 from json import load as load_json
 
 env = getEnvironment()
@@ -18,7 +18,7 @@ path += sep + 'hardcoreModpack.data'
 del env
 
 def get_version(numeric=True):
-    if not os.path.exists(path): return None
+    if not exists(path): return None
     try: data = load_json(open(path, 'r'))
     except: data = {}
     return int(data.get("version", 0)) if numeric else data.get("version_str", "0")
