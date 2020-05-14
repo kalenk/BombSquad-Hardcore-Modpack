@@ -32,21 +32,22 @@ del env
 INITIAL_TRANSITION = False
 
 def change_menu_music():
-    # rename file menuMusic.ogg to menuMusic.temp
-    # move new-menu-music file to ones
     if not PLATFORM == 'android': return
     try: import hardcore
     except: return
-    else: path = hardcore.get_path()
+    else: 
+        try: path = hardcore.get_path()
+        except: return
     music = {'newMenuMusic.ogg': 'menuMusic.ogg'}
     files = os.listdir(path)
     for file in files:
         if file not in music: continue
-        temp = SYSTEM_SCRIPTS_PATH.replace('scripts','audio') + os.path.sep + files[file]
-        if os.path.exists(temp):
-            try: shutil.move(temp, temp + '.temp')
+        src = SYSTEM_SCRIPTS_PATH.replace('scripts','audio') + os.path.sep + music[file]
+        dst = src + '.temp'
+        if os.path.exists(temp) and not os.path.exists(dst):
+            try: shutil.move(src, dst)
             except: pass
-        try: shutil.move(path + os.path.sep + file, temp)
+        try: shutil.move(path + os.path.sep + file, src)
         except: pass
 
 def fireworks(self):
