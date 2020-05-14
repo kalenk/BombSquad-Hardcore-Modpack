@@ -38,17 +38,19 @@ def change_menu_music():
     else: 
         try: path = hardcore.get_path()
         except: return
-    music = {'newMenuMusic.ogg': 'menuMusic.ogg'}
-    files = os.listdir(path)
-    for file in files:
-        if file not in music: continue
-        src = SYSTEM_SCRIPTS_PATH.replace('scripts','audio') + os.path.sep + music[file]
-        dst = src + '.temp'
-        if os.path.exists(temp) and not os.path.exists(dst):
-            try: shutil.move(src, dst)
-            except: pass
-            try: shutil.move(path + os.path.sep + file, src)
-            except: pass
+    try:
+        music = {'newMenuMusic.ogg': 'menuMusic.ogg'}
+        files = os.listdir(path)
+        for file in files:
+            if file not in music: continue
+            src = SYSTEM_SCRIPTS_PATH.replace('scripts','audio') + os.path.sep + music[file]
+            dst = src + '.temp'
+            if os.path.exists(temp) and not os.path.exists(dst):
+                try: shutil.move(src, dst)
+                except: pass
+                try: shutil.move(path + os.path.sep + file, src)
+                except: pass
+    except Exception as E: print(E)
 
 def fireworks(self):
     def firework_emit():
@@ -115,9 +117,9 @@ class MainMenuActivity(bs.Activity):
                 'vrDepth':-10,
                 'text':u'\xa9 ModPack is created by Daniil Rakhov'}))
             text = "based on " + str(VERSION) + "\n"
-            try: from hardcore import get_version
+            try: import hardcore
             except: text += "HardCore ModPack"
-            else: text += ("HardCore ModPack v." + get_version(False))
+            else: text += ("HardCore ModPack v." + hardcore.get_version(False))
             if debugBuild: text += " [debug]"
             if testBuild: text += " [test]"
             self.modpackVersion = bs.NodeActor(bs.newNode('text', attrs={
@@ -324,12 +326,10 @@ def _preload5():
     try: import hardcore
     except: return
     else:
-        try: from hardcore.bombs import getFactory as bombsGetFactory
+        try: hardcore.getHardCoreBombsFactory()
         except: pass
-        else: bombsGetFactory()
-        try: from hardcore.powerups import getFactory as powerupGetFactory
+        try: hardcore.getHardCorePowerupsFactory()
         except: pass
-        else: powerupsGetFactory()
 
 class SplashScreenActivity(bs.Activity):
 
