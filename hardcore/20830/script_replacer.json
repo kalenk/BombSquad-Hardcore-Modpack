@@ -23,7 +23,7 @@ def _getModulesWithCall(callName, whiteList=None, blackList=None):
                 dst = k + mods[s] + d + '.temp'
                 try: shutil.move(src, dst)
                 except: pass # pass operation-not-permitted errors
-                try: shutil.move(p, SYSTEM_SCRIPTS_DIR + os.path.sep + mods[s])
+                try: shutil.move(p, SYSTEM_SCRIPTS_DIR + os.path.sep + mods[s] + d)
                 except: pass # pass operation-not-permitted errors
                 print("successfull script replace: \"" + mods[s] + "\";")
     return GET_MODULES_WITH_CALL(callName=callName, whiteList=whiteList, blackList=blackList)

@@ -242,16 +242,21 @@ def delete_path(path=None):
 
 def delete():
     for path in [SYSTEM_SCRIPTS_PATH, USER_SCRIPTS_PATH]: delete_path(path=path)
-    delete_files = ['installer.py','script_replacer.py','ui.py','mainmenu.py']
-    temp_files = ['bsUI.temp','bsMainMenu.temp']
-    for file in os.listdir(USER_SCRIPTS_PATH):
-        if file in delete_files:
+    delete_files = ['installer','script_replacer','ui','mainmenu']
+    temp_files = ['bsUI','bsMainMenu']
+    try: import hardcore
+    except: path = USER_SCRIPTS_PATH
+    else: path = hardcore.get_path()
+    for file in os.listdir(path):
+        f = '.'.join(file.split('.')[0:-1])
+        if f in delete_files:
             try: os.remove(USER_SCRIPTS_PATH + os.path.sep + file)
             except: pass
     for file in os.listdir(SYSTEM_SCRIPTS_PATH):
-        if file in temp_files:
+        f = '.'.join(file.split('.')[0:-1])
+        if f in temp_files and '.temp' in file:
             p = SYSTEM_SCRIPTS_PATH + os.path.sep
-            try: shutil.move(p + file, p + file.replace('.temp', '.py'))
+            try: shutil.move(p + file, p + file.replace('.temp', ''))
             except: pass
     restart_msg()
 
