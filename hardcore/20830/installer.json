@@ -3,6 +3,7 @@ import bs, httplib, urllib2
 import os, shutil; import json
 from inspect import isclass as is_class
 from bsUI import ConfirmWindow as ConfirmWindowUI
+import time
 
 class ConfirmWindow(ConfirmWindowUI):
     def __init__(self, text="Are you sure?", description="Bruh", 
@@ -35,6 +36,24 @@ class ConfirmWindow(ConfirmWindowUI):
         ConfirmWindowUI._cancel(self)
         if self._cancelAction is not None: self._cancelAction()
 
+class ReturnTimer(object):
+    def __init__(self, lenght, timeType='real', *args):
+        if lenght < 0: raise ValueError()
+        if timeType not in ['real','game']: raise ValueError()
+
+        self._call = args[0] if len(args) > 0 else None
+        self._args = args[1:] if len(args) > 1 else None
+
+        if timeType == 'real': self._context = 'UI'
+        elif timeType == 'game': self._context = bs.getActivity()
+        self._lenght = float(lenght/1000)
+    def call(self):
+        with bs.Context(self._context):
+            time.sleep(self._lenght)
+            if self._args is not None: return self._call(*self._args)
+            else: return self._call()
+        
+
 colorYellow = (1, 0.85, 0)
 colorRed = (1, 0, 0)
 colorGreen = (0, 1, 0)
@@ -43,9 +62,9 @@ debug = 2
 env = bs.getEnvironment()
 platform = env['platform']
 USER_SCRIPTS_PATH = env['userScriptsDirectory']
-SYSTEM_SCRIPTS_PATH = env['systemScriptsDirectory'] #if platform not in ['android'] else '/data/data/net.froemling.bombsquad/files/bombsquad_files/data/scripts'
+SYSTEM_SCRIPTS_PATH = env['systemScriptsDirectory']
 SYSTEM_DIR = os.path.sep.join(SYSTEM_SCRIPTS_PATH.split(os.path.sep)[0:-1])
-GITHUB_BRANCH = 'https://github.com/DrovGamedev/BombSquad-Hardcore-Modpack/raw/master' if hasattr(httplib, 'HTTPS') and hasattr(urllib2, 'ssl') else 'http://raw.githack.com/DrovGamedev/BombSquad-Hardcore-Modpack/master'
+GITHUB_BRANCH = 'https://raw.githubusercontent.com/DrovGamedev/BombSquad-Hardcore-Modpack/master' if hasattr(httplib, 'HTTPS') and hasattr(urllib2, 'ssl') else 'http://raw.githack.com/DrovGamedev/BombSquad-Hardcore-Modpack/master'
 ERRORS = []
 DOWNLOADS = []
 del env
@@ -58,16 +77,13 @@ def add_scripts():
         sys.path.append(path)
 add_scripts()
 try: import hardcore
-except Exception as E:
-    print(E); INSTALLED_VERSION = 0
-else: 
-    print("1")
-    print(dir(hardcore))
-    INSTALLED_VERSION = hardcore.get_version(True) if hasattr(hardcore, 'get_version') else 0
+except Exception as E: INSTALLED_VERSION = 0
+else: INSTALLED_VERSION = hardcore.get_version(True) if hasattr(hardcore, 'get_version') else 0
 if INSTALLED_VERSION is None: INSTALLED_VERSION = 0
 try: from hardcore.advanced import get_settings
 except: get_settings = lambda : {}
 SETTINGS = get_settings()
+if debug > 0: print("installed version: " + str(INSTALLED_VERSION))
 
 if debug > 0:
     def error_log(error=None):
@@ -109,32 +125,51 @@ def has_internet_connection():
     else: s.close(); return True
 
 class _DownloadFinished(object):
-    def __init__(self, url, path, call=None, args=()):
+    def __init__(self, url, path, *args):
         global DOWNLOADS
         self.filename = path.split(os.path.sep)[-1]
         DOWNLOADS.append(self.filename)
         self.u = url
         self.p = path
         if debug > 0: print("Successfully downloaded: " + self.filename)
-        if call is not None: call(*args)
+        call = args[0] if len(args) > 0 else None
+        a = args[1:] if len(args) > 1 else None
+        if call is not None: 
+            if a is not None: call(*a)
+            else: call()
 
-def download(url, path, rewrite=True, end_call=None, *args):
+def download(url, path, rewrite=True, *args):
     if not rewrite and os.path.exists(path): return
-    try: 
-        f = open(path, 'w+')
-        u = urllib2.urlopen(url)
-    except Exception as E: 
-        print("download error; ")
-        error_log(E); return
+    def open_file(path):
+        errors = 0 
+        try: f = open(path, 'w+')
+        except Exception as E: 
+            errors += 1; print("file open error;"); print(E)
+            if errors >= 5: return None
+            else: return ReturnTimer(1000, "real", open_file, path).call()
+        else: return f
+    def open_url(url): 
+        errors = 0
+        print(url)
+        try: u = urllib2.urlopen(url)
+        except Exception as E: 
+            errors += 1; print("url open error;"); print(E)
+            if errors >= 4: return None
+            else: return ReturnTimer(3000, "real", open_url, url).call()
+        else: return u
+    u = open_url(url=url)
+    f = open_file(path=path)
+    if u is None or f is None: print("download error;"); return
     def on_end():
         f.close(); u.close()
-        _DownloadFinished(url, path, end_call, args)
+        _DownloadFinished(url, path, *args)
     def chunk():
         try: c = u.read(1048576)
         except Exception as E: 
-            c = ''
+            c = None
             if debug > 1:
-                for i in ["chunk lost: ", E, ""]: print(i)
+                for i in ["chunk lost: ", E, "try again..."]: print(i)
+        if c is None: bs.realTimer(3000, chunk); return
         if not c: on_end(); return
         f.write(c); f.flush()
         bs.realTimer(1000, chunk)
@@ -151,8 +186,7 @@ def update(version=None, ignore_old=True, download_path=None):
         if debug > 1: print("no internet connection")
         return
     filename = 'versions.json'
-    def get_files(*args):
-        path = args[0]; download_path = args[1]
+    def download_files(path, download_path):
         if not os.path.exists(path): return
         f = open(path, 'r')
         try: data = json.load(f)
@@ -161,12 +195,12 @@ def update(version=None, ignore_old=True, download_path=None):
         elif str(version) in data: v = str(version)
         else: return
         if v not in data: return
-        if ignore_old and INSTALLED_VERSION >= v: return
+        if ignore_old and INSTALLED_VERSION >= v: 
+            if debug > 0: print("installed version equals or bigger than installing version; return")
+            return
         url = (GITHUB_BRANCH+'/')
         if download_path is None: download_path = USER_SCRIPTS_PATH
-        def check_end(*args):
-            paths = args[0]; urls = args[1]
-            c = args[2]; cnt_end = args[3]
+        def check_end(paths, urls, c, cnt_end):
             filename = paths[c].split(os.path.sep)[-1]
             if filename == 'hardcoreModpack.data':
                 try: data = json.load(open(paths[c], 'r'))
@@ -195,24 +229,21 @@ def update(version=None, ignore_old=True, download_path=None):
             if debug > 1: print("download path: " + p)
             paths.append(p)
             urls.append(u)
-            print(u)
-        if debug > 0: 
-            print("urls: " + str(urls))
-            print("paths: " + str(paths))
-            for path in paths: print(str(path))
-            print("try to download from url: " + u)
+        if debug > 0: print("try to download from url: " + u)
         download(urls[0], paths[0], True, check_end, paths, urls, 0, cnt_end)
         
     if debug > 0: print("try to download " + filename)
     url, path = GITHUB_BRANCH + '/' + filename, USER_SCRIPTS_PATH + os.path.sep + filename
-    download(url, path, True, get_files, path, download_path)
+    download(url, path, True, download_files, path, download_path)
+
+def delete_path(path=None):
+    path += os.path.sep + 'hardcore'
+    if not os.path.exists(path): return
+    try: shutil.rmtree(path)
+    except: pass
 
 def delete():
-    for path in [SYSTEM_SCRIPTS_PATH, USER_SCRIPTS_PATH]:
-        path += os.path.sep + 'hardcore'
-        if not os.path.exists(path): return
-        try: shutil.rmtree(path)
-        except: pass
+    for path in [SYSTEM_SCRIPTS_PATH, USER_SCRIPTS_PATH]: delete_path(path=path)
     delete_files = ['installer.py','script_replacer.py','ui.py','mainmenu.py']
     temp_files = ['bsUI.temp','bsMainMenu.temp']
     for file in os.listdir(USER_SCRIPTS_PATH):
@@ -228,6 +259,11 @@ def delete():
 
 def update_modpack():
     def a(path=None):
+        try: import hardcore
+        except: pass
+        else: 
+            p = hardcore.get_path()
+            if p != path: delete_path(p)
         bs.screenMessage(translates["downloadStartsNow"], color=colorYellow)
         bs.realTimer(3000, bs.Call(update, None, True, path))
     def reset():
@@ -251,4 +287,8 @@ def update_modpack():
         height=150, action=reset, cancelAction=next_window)
 
 if INSTALLED_VERSION == 0: bs.realTimer(5000, bs.Call(update_modpack))
-elif SETTINGS.get("auto-update", False): update(None, True, None)
+elif SETTINGS.get("auto-update", False): 
+    try: import hardcore
+    except: path = None
+    else: path = hardcore.get_path()
+    bs.realTimer(5000, bs.Call(update, None, True, path))
