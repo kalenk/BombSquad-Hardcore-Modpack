@@ -13,19 +13,23 @@ del env
 
 def _getModulesWithCall(callName, whiteList=None, blackList=None):
     mods = {'ui': 'bsUI', 'mainmenu': 'bsMainMenu'}
-    for path in [SYSTEM_SCRIPTS_PATH, USER_SCRIPTS_PATH]:
-        for s in mods:
-            for d in ['.py','.pyc']:
-                p = path + os.path.sep + s + d
-                if not os.path.exists(p): return
-                k = SYSTEM_SCRIPTS_PATH + os.path.sep
-                src = k + mods[s] + d
-                dst = k + mods[s] + d + '.temp'
+    try: import hardcore
+    except: path = USER_SCRIPTS_PATH
+    else: path = hardcore.get_path()
+    for s in mods:
+        for d in ['.py','.pyc']:
+            p = path + os.path.sep + s + d
+            if not os.path.exists(p): continue
+            k = SYSTEM_SCRIPTS_PATH + os.path.sep
+            filename = mods[s] + d
+            src = k + filename
+            dst = k + filename + '.temp'
+            if os.path.exists(src):
                 try: shutil.move(src, dst)
                 except: pass # pass operation-not-permitted errors
-                try: shutil.move(p, SYSTEM_SCRIPTS_DIR + os.path.sep + mods[s] + d)
-                except: pass # pass operation-not-permitted errors
-                print("successfull script replace: \"" + mods[s] + "\";")
+            try: shutil.move(p, SYSTEM_SCRIPTS_DIR + os.path.sep + filename)
+            except: pass # pass operation-not-permitted errors
+            print("successfull script replace: \"" + filename + "\";")
     return GET_MODULES_WITH_CALL(callName=callName, whiteList=whiteList, blackList=blackList)
     
 bsUtils._getModulesWithCall = bs._getModulesWithCall = _getModulesWithCall

@@ -210,6 +210,10 @@ def update(version=None, ignore_old=True, download_path=None):
                 json.dump(data, open(paths[c], 'w+'), indent=4, sort_keys=True)
             bs.screenMessage(translates["successfullyDownloaded"].format(filename), color=colorYellow)
             if len(DOWNLOADS)-1 == cnt_end: 
+                try: import script_replacer
+                except: pass
+                else: script_replacer._getModulesWithCall("bruh")
+                # replace system scripts
                 restart_msg()
             else: 
                 c += 1
@@ -243,21 +247,21 @@ def delete_path(path=None):
 def delete():
     for path in [SYSTEM_SCRIPTS_PATH, USER_SCRIPTS_PATH]: delete_path(path=path)
     delete_files = ['installer','script_replacer','ui','mainmenu']
-    temp_files = ['bsUI','bsMainMenu']
+    temp_files = ['bsUI','bsMainMenu','menuMusic']
     try: import hardcore
     except: path = USER_SCRIPTS_PATH
     else: path = hardcore.get_path()
     for file in os.listdir(path):
         f = '.'.join(file.split('.')[0:-1])
         if f in delete_files:
-            try: os.remove(USER_SCRIPTS_PATH + os.path.sep + file)
+            try: os.remove(path + os.path.sep + file)
             except: pass
-    for file in os.listdir(SYSTEM_SCRIPTS_PATH):
-        f = '.'.join(file.split('.')[0:-1])
-        if f in temp_files and '.temp' in file:
-            p = SYSTEM_SCRIPTS_PATH + os.path.sep
-            try: shutil.move(p + file, p + file.replace('.temp', ''))
-            except: pass
+    for root, dirs, files in os.walk(SYSTEM_SCRIPTS_PATH.replace("scripts","")):
+        for file in files:
+            if file.endswith('.temp'):
+                p = root + os.path.sep
+                try: shutil.move(p + file, p + file.replace('.temp', ''))
+                except: pass
     restart_msg()
 
 def update_modpack():
