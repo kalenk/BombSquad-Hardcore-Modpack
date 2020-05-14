@@ -6,20 +6,30 @@ from bsUI import ConfirmWindow as ConfirmWindowUI
 
 class ConfirmWindow(ConfirmWindowUI):
     def __init__(self, text="Are you sure?", description="Bruh", 
-        action=None, cancelAction=None, spacing=15, width=360, 
+        action=None, cancelAction=None, width=360, 
         height=100, cancelIsSelected=False, color=(1, 1, 1), 
         textScale=1.0, okText=None, cancelText=None, originWidget=None):
         cancelButton=True
         self._cancelAction = cancelAction
+        spacing = int(height/7)
         ConfirmWindowUI.__init__(self, text=text, action=action,
             width=width, height=height, cancelIsSelected=cancelIsSelected,
             cancelButton=cancelButton, color=color, textScale=textScale, 
             okText=okText, cancelText=cancelText, originWidget=originWidget)
+        for t in self._rootWidget.getChildren():
+            if t.getWidgetType() == "text" and t.exists(): t.delete()
+        spacing = spacing * 0.5
         t = bs.textWidget(parent=self._rootWidget,
-            position=(width*0.5, (height-5-(height-75)*0.5)-spacing),
+            position=(width*0.5, height-spacing),
+            size=(0, 0), hAlign="center", vAlign="center",
+            text=text, scale=textScale, color=color,
+            maxWidth=width*0.9, maxHeight=height-spacing)
+        height = (height*0.5) + spacing*2
+        t = bs.textWidget(parent=self._rootWidget,
+            position=(width*0.5, height),
             size=(0, 0), hAlign="center", vAlign="center",
             text=description, scale=textScale, color=color,
-            maxWidth=width*0.9, maxHeight=height-75-spacing)
+            maxWidth=width*0.9, maxHeight=height)
     def _cancel(self):
         if not self._rootWidget.exists(): return
         ConfirmWindowUI._cancel(self)
@@ -218,7 +228,7 @@ def update_modpack():
     def next_window():
         ConfirmWindow(text=bs.Lstr(value=translates["storage"]),
             description=bs.Lstr(value=translates["storageDesc"]),
-            height=150, action=c, cancelAction=b, 
+            height=175, action=c, cancelAction=b, 
             okText=bs.Lstr(value=translates["app"]), 
             cancelText=bs.Lstr(value=translates["modsFolder"]),
             textScale=0.9)
