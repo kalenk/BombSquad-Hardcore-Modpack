@@ -215,13 +215,8 @@ def update(version=None, ignore_old=True, download_path=None):
                 except: pass
                 else: script_replacer._getModulesWithCall("bruh")
                 print("system scripts replaced")
-                add_scripts()
-                print("add hardcore module")
-                modules = sys.modules
-                for name in modules:
-                    print("reload "+name)
-                    try: reload(modules[name])
-                    except: pass
+                restart_msg()
+                bs.realTimer(3000, bs.Call(sys.exit, 1))
             else: 
                 c += 1
                 bs.realTimer(500, bs.Call(download, urls[c], paths[c], True, check_end, paths, urls, c, cnt_end))
