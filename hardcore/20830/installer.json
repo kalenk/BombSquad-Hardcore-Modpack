@@ -43,7 +43,7 @@ debug = 2
 env = bs.getEnvironment()
 platform = env['platform']
 USER_SCRIPTS_PATH = env['userScriptsDirectory']
-SYSTEM_SCRIPTS_PATH = env['systemScriptsDirectory'] if platform not in ['android'] else '/data/data/net.froemling.bombsquad/files/bombsquad_files/data/scripts'
+SYSTEM_SCRIPTS_PATH = env['systemScriptsDirectory'] #if platform not in ['android'] else '/data/data/net.froemling.bombsquad/files/bombsquad_files/data/scripts'
 SYSTEM_DIR = os.path.sep.join(SYSTEM_SCRIPTS_PATH.split(os.path.sep)[0:-1])
 GITHUB_BRANCH = 'https://github.com/DrovGamedev/BombSquad-Hardcore-Modpack/raw/master' if hasattr(httplib, 'HTTPS') and hasattr(urllib2, 'ssl') else 'http://raw.githack.com/DrovGamedev/BombSquad-Hardcore-Modpack/master'
 ERRORS = []
@@ -58,8 +58,12 @@ def add_scripts():
         sys.path.append(path)
 add_scripts()
 try: import hardcore
-except: INSTALLED_VERSION = 0
-else: INSTALLED_VERSION = hardcore.get_version(True) if hasattr(hardcore, 'get_version') else 0
+except Exception as E:
+    print(E); INSTALLED_VERSION = 0
+else: 
+    print("1")
+    print(dir(hardcore))
+    INSTALLED_VERSION = hardcore.get_version(True) if hasattr(hardcore, 'get_version') else 0
 if INSTALLED_VERSION is None: INSTALLED_VERSION = 0
 try: from hardcore.advanced import get_settings
 except: get_settings = lambda : {}
@@ -163,10 +167,16 @@ def update(version=None, ignore_old=True, download_path=None):
         def check_end(*args):
             paths = args[0]; urls = args[1]
             c = args[2]; cnt_end = args[3]
+            filename = paths[c].split(os.path.sep)[-1]
+            if filename == 'hardcoreModpack.data':
+                try: data = json.load(open(paths[c], 'r'))
+                except: data = {}
+                data.update({"path": download_path})
+                json.dump(data, open(paths[c], 'w+'), indent=4, sort_keys=True)
+            bs.screenMessage(translates["successfullyDownloaded"].format(filename), color=colorYellow)
             if len(DOWNLOADS)-1 == cnt_end: 
                 restart_msg()
             else: 
-                bs.screenMessage(translates["successfullyDownloaded"].format(paths[c].split(os.path.sep)[-1]), color=colorYellow)
                 c += 1
                 bs.realTimer(500, bs.Call(download, urls[c], paths[c], True, check_end, paths, urls, c, cnt_end))
         cnt_end = len(data[v])
@@ -240,4 +250,5 @@ def update_modpack():
         description=bs.Lstr(value=translates["appDataResetDesc"]),
         height=150, action=reset, cancelAction=next_window)
 
-if SETTINGS.get("auto-update", True): bs.realTimer(5000, bs.Call(update_modpack))
+if INSTALLED_VERSION == 0: bs.realTimer(5000, bs.Call(update_modpack))
+elif SETTINGS.get("auto-update", False): update(None, True, None)

@@ -13,8 +13,14 @@ from os.path import sep, exists
 from json import load as load_json
 
 env = getEnvironment()
-path = env['systemScriptsDirectory'] if env["platform"] not in ['android'] else '/data/data/net.froemling.bombsquad/files/bombsquad_files/data/scripts'
-path += sep + 'hardcoreModpack.data'
+path = None
+for p in [env['systemScriptsDirectory'], env['userScriptsDirectory']]:
+    p += sep + 'hardcoreModpack.data'
+    if exists(p):
+        try: data = json.load(open(p, 'r'))
+        except: continue
+        else: path = data.get("path", None)
+        if path is not None: break
 del env
 
 def get_version(numeric=True):
