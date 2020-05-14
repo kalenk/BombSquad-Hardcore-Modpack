@@ -47,8 +47,8 @@ def change_menu_music():
         if os.path.exists(temp) and not os.path.exists(dst):
             try: shutil.move(src, dst)
             except: pass
-        try: shutil.move(path + os.path.sep + file, src)
-        except: pass
+            try: shutil.move(path + os.path.sep + file, src)
+            except: pass
 
 def fireworks(self):
     def firework_emit():
