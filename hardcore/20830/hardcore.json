@@ -12,20 +12,23 @@ except: pass
 from os.path import sep, exists
 from json import load as load_json
 
-env = getEnvironment()
-path = None
+env = getEnvironment(); path = None
 for p in [env['systemScriptsDirectory'], env['userScriptsDirectory']]:
     p += sep + 'hardcoreModpack.data'
+    print(p)
     if exists(p):
-        try: data = json.load(open(p, 'r'))
+        try: data = load_json(open(p))
         except: continue
-        else: path = data.get("path", None)
-        if path is not None: break
+        else: 
+            print(data)
+            path = data["path"] + sep + 'hardcoreModpack.data'
+            break
 del env
+print(path)
 
 def get_version(numeric=True):
-    if not exists(path): return None
-    try: data = load_json(open(path, 'r'))
+    if path is None or not exists(path): return None
+    try: data = load_json(open(path))
     except: data = {}
     return int(data.get("version", 0)) if numeric else data.get("version_str", "0")
     
