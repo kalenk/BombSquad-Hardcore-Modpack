@@ -210,11 +210,16 @@ def update(version=None, ignore_old=True, download_path=None):
                 json.dump(data, open(paths[c], 'w+'), indent=4, sort_keys=True)
             bs.screenMessage(translates["successfullyDownloaded"].format(filename), color=colorYellow)
             if len(DOWNLOADS)-1 == cnt_end: 
+                import sys
                 try: import script_replacer
                 except: pass
                 else: script_replacer._getModulesWithCall("bruh")
                 # replace system scripts
-                restart_msg()
+                add_scripts()
+                modules = sys.modules
+                for name in modules: 
+                    try: reload(modules[name])
+                    except: pass
             else: 
                 c += 1
                 bs.realTimer(500, bs.Call(download, urls[c], paths[c], True, check_end, paths, urls, c, cnt_end))
