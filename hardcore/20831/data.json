@@ -1,6 +1,6 @@
 {
-    "version": 20830,
-    "build": "13.05.20",
-    "changelog": "",
-    "version_str": "2.0.830"
+    "version": 20831,
+    "build": "15.05.20",
+    "changelog": "installer fixes",
+    "version_str": "2.0.831"
 }
