@@ -3,7 +3,7 @@ import bs, httplib, urllib2
 import os, shutil; import json
 from inspect import isclass as is_class
 from bsUI import ConfirmWindow as ConfirmWindowUI
-import time
+import time, threading
 
 class ConfirmWindow(ConfirmWindowUI):
     def __init__(self, text="Are you sure?", description="Bruh", 
@@ -36,23 +36,99 @@ class ConfirmWindow(ConfirmWindowUI):
         ConfirmWindowUI._cancel(self)
         if self._cancelAction is not None: self._cancelAction()
 
-class ReturnTimer(object):
-    def __init__(self, lenght, timeType='real', *args):
+class ConfirmWindowUI2(ConfirmWindowUI):
+    def __init__(self, text="Are you sure?", description="Bruh", 
+        action=None, width=360, height=100, cancelIsSelected=False,
+        color=(1, 1, 1), textScale=1.0, okText=None, cancelText=None, 
+        originWidget=None, cancelButton=True):
+        ConfirmWindowUI.__init__(self, text=text, action=action,
+            width=width, height=height, cancelIsSelected=cancelIsSelected,
+            cancelButton=cancelButton, color=color, textScale=textScale, 
+            okText=okText, cancelText=cancelText, originWidget=originWidget)
+    def _ok(self):
+        if not self._rootWidget.exists(): return
+        bs.containerWidget(edit=self._rootWidget, transition=('outLeft' if self._transitionOut is None else self._transitionOut))
+        if self._action is not None: self._action.__call__()
+
+class ReturnTimer(threading.Thread):
+    def __init__(self, lenght, *args):
+        threading.Thread.__init__(self)
         if lenght < 0: raise ValueError()
-        if timeType not in ['real','game']: raise ValueError()
 
         self._call = args[0] if len(args) > 0 else None
         self._args = args[1:] if len(args) > 1 else None
-
-        if timeType == 'real': self._context = 'UI'
-        elif timeType == 'game': self._context = bs.getActivity()
         self._lenght = float(lenght/1000)
-    def call(self):
-        with bs.Context(self._context):
+    def run(self):
+        try:
             time.sleep(self._lenght)
             if self._args is not None: return self._call(*self._args)
             else: return self._call()
+        except Exception:
+            bs.callInGameThread(bs.Call(self._call, None))    
+
+class _DownloadFinished(object):
+    def __init__(self, url, path, *args):
+        global DOWNLOADS
+        self.filename = path.split(os.path.sep)[-1]
+        DOWNLOADS.append(self.filename)
+        self.u = url
+        self.p = path
+        if debug > 0: print("Successfully downloaded: " + self.filename)
+        call = args[0] if len(args) > 0 else None
+        a = args[1:] if len(args) > 1 else None
+        if call is not None: 
+            if a is not None: call(*a)
+            else: call()
+
+class Downloader(threading.Thread):
+    def __init__(self, download_url, download_path, rewrite_file=True, *args):
+        threading.Thread.__init__(self)
+        self.errors_count = 0
         
+        self._url = download_url
+        self._path = download_path
+        self._rewrite = rewrite_file
+        self._args = args
+    def open_file(self, path):
+        try: f = open(path, 'w+')
+        except Exception as E: 
+            self.errors_count += 1; print("file open error;"); print(E)
+            if self.errors_count > 4: return None
+            else: return ReturnTimer(1000, self.open_file, path).start()
+        else: return f
+    def open_url(self, url): 
+        try: u = urllib2.urlopen(url)
+        except Exception as E: 
+            self.errors_count += 1; print("url open error; "+url); print(E)
+            if self.errors_count > 29: return None
+            else: return ReturnTimer(1000, self.open_url, url).start()
+        else: return u
+    def run(self):
+        try:
+            if not self._rewrite and os.path.exists(self._path): return
+            if debug > 0: print("try to download from url: " + self._url)
+            self.errors_count = 0
+    
+            u = self.open_url(url=self._url)
+            f = self.open_file(path=self._path)
+    
+            if u is None or f is None: print("download error; " + self._url); time.sleep(1); self.run(); return
+            def on_end():
+                f.close(); u.close()
+                _DownloadFinished(self._url, self._path, *self._args)
+            def chunk():
+                try: c = u.read(524288)
+                except Exception as E:
+                    self.errors_count += 1
+                    if self.errors_count > 49: return
+                    if debug > 1:
+                        for i in ["chunk lost: ", E, "try again..."]: print(i)
+                    bs.realTimer(3000, chunk); return
+                if not c: on_end(); return
+                f.write(c); f.flush()
+                bs.realTimer(1000, chunk)
+            bs.callInGameThread(bs.Call(chunk))
+        except Exception as E: print(E)
 
 colorYellow = (1, 0.85, 0)
 colorRed = (1, 0, 0)
@@ -102,7 +178,9 @@ translates = {
         "app": "Приложение",
         "modsFolder": "Папка модов",
         "downloadStartsNow": "Загрузка сейчас начнётся.\nПожалуйста, не выходи из игры.",
-        "successfullyDownloaded": "Успешно загружено: {}"},
+        "successfullyDownloaded": "Успешно загружено: {}",
+        "installThisVersion?": "Установить версию {}?",
+        "update": "Найдено обновление {}.\nУстановить?"},
     "English": {
         "installCompleted": "Modpack successfully installed!",
         "appDataReset": "App Data Reset",
@@ -112,7 +190,9 @@ translates = {
         "app": "App",
         "modsFolder": "Mods Folder",
         "downloadStartsNow": "Download starts now.\nPlease, don\'t quit from game.",
-        "successfullyDownloaded": "Successfully downloaded: {}"}
+        "successfullyDownloaded": "Successfully downloaded: {}",
+        "installThisVersion?": "Install version {}?",
+        "update": "Found update {}.\nInstall it?"}
 }
 translates = translates.get(bs.getLanguage(), translates["English"])
 
@@ -124,57 +204,12 @@ def has_internet_connection():
     except Exception: return False
     else: s.close(); return True
 
-class _DownloadFinished(object):
-    def __init__(self, url, path, *args):
-        global DOWNLOADS
-        self.filename = path.split(os.path.sep)[-1]
-        DOWNLOADS.append(self.filename)
-        self.u = url
-        self.p = path
-        if debug > 0: print("Successfully downloaded: " + self.filename)
-        call = args[0] if len(args) > 0 else None
-        a = args[1:] if len(args) > 1 else None
-        if call is not None: 
-            if a is not None: call(*a)
-            else: call()
-
 def download(url, path, rewrite=True, *args):
-    if not rewrite and os.path.exists(path): return
-    if debug > 0: print("try to download from url: " + url)
-    def open_file(path):
-        errors = 0 
-        try: f = open(path, 'w+')
-        except Exception as E: 
-            errors += 1; print("file open error;"); print(E)
-            if errors >= 5: return None
-            else: return ReturnTimer(1000, "real", open_file, path).call()
-        else: return f
-    def open_url(url): 
-        errors = 0
-        print(url)
-        try: u = urllib2.urlopen(url)
-        except Exception as E: 
-            errors += 1; print("url open error;"); print(E)
-            if errors >= 4: return None
-            else: return ReturnTimer(3000, "real", open_url, url).call()
-        else: return u
-    u = open_url(url=url)
-    f = open_file(path=path)
-    if u is None or f is None: print("download error;"); return
-    def on_end():
-        f.close(); u.close()
-        _DownloadFinished(url, path, *args)
-    def chunk():
-        try: c = u.read(1048576)
-        except Exception as E: 
-            c = None
-            if debug > 1:
-                for i in ["chunk lost: ", E, "try again..."]: print(i)
-        if c is None: bs.realTimer(3000, chunk); return
-        if not c: on_end(); return
-        f.write(c); f.flush()
-        bs.realTimer(1000, chunk)
-    chunk()
+    a = tuple([url])
+    a += (path, )
+    a += (rewrite, )
+    a += args
+    Downloader(*a).start()
 
 def restart_msg():
     if debug > 1: print("send restart message...")
@@ -182,23 +217,7 @@ def restart_msg():
 
 def update(version=None, ignore_old=True, download_path=None):
     global DOWNLOADS
-    DOWNLOADS = []
-    if not has_internet_connection(): 
-        if debug > 1: print("no internet connection")
-        return
-    filename = 'versions.json'
-    def download_files(path, download_path):
-        if not os.path.exists(path): return
-        f = open(path, 'r')
-        try: data = json.load(f)
-        except: data = {}
-        if version is None and 'last_version' in data: v = str(data['last_version'])
-        elif str(version) in data: v = str(version)
-        else: return
-        if v not in data: return
-        if ignore_old and INSTALLED_VERSION >= int(v): 
-            if debug > 0: print("installed version equals or bigger than installing version; return")
-            return
+    def download_files(download_path, data, v):
         url = (GITHUB_BRANCH+'/')
         if download_path is None: download_path = USER_SCRIPTS_PATH
         def check_end(paths, urls, c, cnt_end):
@@ -237,8 +256,28 @@ def update(version=None, ignore_old=True, download_path=None):
             paths.append(p)
             urls.append(u)
         download(urls[0], paths[0], True, check_end, paths, urls, 0, cnt_end)
-    url, path = GITHUB_BRANCH + '/' + filename, USER_SCRIPTS_PATH + os.path.sep + filename
-    download(url, path, True, download_files, path, download_path)
+    def confirm_download(path, download_path):
+        if not os.path.exists(path): return
+        f = open(path, 'r')
+        try: data = json.load(f)
+        except: data = {}
+        if version is None and 'last_version' in data: v = str(data['last_version'])
+        elif str(version) in data: v = str(version)
+        else: return
+        if v not in data: return
+        if ignore_old and INSTALLED_VERSION >= int(v): 
+            if debug > 0: print("installed version equals or bigger than installing version; return")
+            return
+        ConfirmWindowUI2(text=bs.Lstr(value=translates["installThisVersion?"].format(v)), action=bs.Call(download_files, download_path, data, v))
+      
+    DOWNLOADS = []
+    if not has_internet_connection(): 
+        if debug > 1: print("no internet connection")
+        return
+    filename = 'versions.json' 
+    url = GITHUB_BRANCH + '/' + filename
+    path = USER_SCRIPTS_PATH + os.path.sep + filename
+    download(url, path, True, confirm_download, path, download_path)
 
 def delete_path(path=None):
     path += os.path.sep + 'hardcore'

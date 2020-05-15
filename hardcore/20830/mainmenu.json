@@ -45,7 +45,7 @@ def change_menu_music():
             if file not in music: continue
             src = SYSTEM_SCRIPTS_PATH.replace('scripts','audio') + os.path.sep + music[file]
             dst = src + '.temp'
-            if os.path.exists(temp) and not os.path.exists(dst):
+            if os.path.exists(src) and not os.path.exists(dst):
                 try: shutil.move(src, dst)
                 except: pass
                 try: shutil.move(path + os.path.sep + file, src)
@@ -236,8 +236,7 @@ class MainMenuActivity(bs.Activity):
             self._language = l
             self._wordActors = []
             word = (('H', (-205, -3)), ('a', (-152, -3)), ('r', (-102, -3)), ('d', (-52, -3)),
-                ('C', (-2, -3)), ('o', (48, -3)), ('r', (98, -3)), ('e', (148, -3)),
-                ('◉', (-28, -78)))
+                ('C', (-2, -3)), ('o', (48, -3)), ('r', (98, -3)), ('e', (148, -3)))
             delay = 500 if not INITIAL_TRANSITION else 1000
             for i, key in enumerate(word):
                 letter = key[0]; pos = key[1]
