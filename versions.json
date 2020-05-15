@@ -15,6 +15,7 @@
         "hardcore/20830/mainmenu.json": "mainmenu.py",
         "hardcore/20830/newMenuMusic.json": "newMenuMusic.ogg",
         "hardcore/20830/replays.json": "replaysMod.py"
+    },
     "20831": {
         "hardcore/20830/advanced.json": "hardcore:advanced.py",
         "hardcore/20830/hardcore.json": "hardcore:__init__.py",
