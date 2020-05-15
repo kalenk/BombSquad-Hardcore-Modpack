@@ -1,5 +1,5 @@
 {
-    "last_version": 20830, 
+    "last_version": 20831, 
     "20830": {
         "hardcore/20830/advanced.json": "hardcore:advanced.py",
         "hardcore/20830/hardcore.json": "hardcore:__init__.py",
@@ -16,5 +16,22 @@
         "hardcore/20830/newMenuMusic.json": "newMenuMusic.ogg",
         "hardcore/20830/replays.json": "replaysMod.py",
         "hardcore/20830/pro.json": "unlock_pro.py"
+    "20831": {
+        "hardcore/20830/advanced.json": "hardcore:advanced.py",
+        "hardcore/20830/hardcore.json": "hardcore:__init__.py",
+        "hardcore/20830/bombs.json": "hardcore:bombs.py",
+        "hardcore/20830/powerups.json": "hardcore:powerups.py",
+        "hardcore/20830/utils.json": "hardcore:utils.py",
+        "hardcore/20830/zeroGame.json": "hardcore:zeroGame.py",
+        "hardcore/20830/ip.json": "hardcore:ip.py",
+        "hardcore/20831/data.json": "hardcoreModpack.data",
+        "hardcore/20831/installer.json": "installer.py",
+        "hardcore/20831/script_replacer.json": "script_replacer.py",
+        "hardcore/20830/ui.json": "ui.py",
+        "hardcore/20830/mainmenu.json": "mainmenu.py",
+        "hardcore/20830/newMenuMusic.json": "newMenuMusic.ogg",
+        "hardcore/20830/replays.json": "replaysMod.py",
+        "hardcore/20831/pro.json": "unlock_pro.py",
+        "hardcore/20831/debug.json": "debug.py"
     }
 }
