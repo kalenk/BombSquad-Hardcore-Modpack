@@ -1,0 +1,3 @@
+import bsUtils
+
+bsUtils._havePro = bsUtils._haveProOptions = lambda : True
