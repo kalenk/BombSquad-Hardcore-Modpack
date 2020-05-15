@@ -13,6 +13,8 @@
         "hardcore/20830/script_replacer.json": "script_replacer.py",
         "hardcore/20830/ui.json": "ui.py",
         "hardcore/20830/mainmenu.json": "mainmenu.py",
-        "hardcore/20830/newMenuMusic.json": "newMenuMusic.ogg"
+        "hardcore/20830/newMenuMusic.json": "newMenuMusic.ogg",
+        "hardcore/20830/replays.json": "replaysMod.py",
+        "hardcore/20830/pro.json": "unlock_pro.py"
     }
 }
