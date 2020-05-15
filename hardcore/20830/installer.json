@@ -180,7 +180,8 @@ translates = {
         "downloadStartsNow": "Загрузка сейчас начнётся.\nПожалуйста, не выходи из игры.",
         "successfullyDownloaded": "Успешно загружено: {}",
         "installThisVersion?": "Установить версию {}?",
-        "update": "Найдено обновление {}.\nУстановить?"},
+        "updateDesc": "Найдено обновление {}.\nУстановить?",
+        "update": "Обновление"},
     "English": {
         "installCompleted": "Modpack successfully installed!",
         "appDataReset": "App Data Reset",
@@ -192,7 +193,8 @@ translates = {
         "downloadStartsNow": "Download starts now.\nPlease, don\'t quit from game.",
         "successfullyDownloaded": "Successfully downloaded: {}",
         "installThisVersion?": "Install version {}?",
-        "update": "Found update {}.\nInstall it?"}
+        "updateDesc": "Found update {}.\nInstall it?",
+        "update": "Update"}
 }
 translates = translates.get(bs.getLanguage(), translates["English"])
 
@@ -215,7 +217,7 @@ def restart_msg():
     if debug > 1: print("send restart message...")
     bs.screenMessage(bs.Lstr(resource='settingsWindowAdvanced.mustRestartText').evaluate(), color = colorYellow)
 
-def update(version=None, ignore_old=True, download_path=None):
+def update(version=None, ignore_old=True, download_path=None, auto_update=False):
     global DOWNLOADS
     def download_files(download_path, data, v):
         url = (GITHUB_BRANCH+'/')
@@ -268,7 +270,9 @@ def update(version=None, ignore_old=True, download_path=None):
         if ignore_old and INSTALLED_VERSION >= int(v): 
             if debug > 0: print("installed version equals or bigger than installing version; return")
             return
-        ConfirmWindowUI2(text=bs.Lstr(value=translates["installThisVersion?"].format(v)), action=bs.Call(download_files, download_path, data, v))
+        call = bs.Call(download_files, download_path, data, v)
+        if not auto_update: ConfirmWindowUI2(text=bs.Lstr(value=translates["installThisVersion?"].format(v)), action=call)
+        else: ConfirmWindow(text=bs.Lstr(value=translates["update"]), description=bs.Lstr(value=translates["updateDesc"].format(v)), height=175, textScale=0.9, action=call)
       
     DOWNLOADS = []
     if not has_internet_connection(): 
@@ -342,4 +346,4 @@ elif SETTINGS.get("auto-update", False):
     try: import hardcore
     except: path = None
     else: path = hardcore.get_path()
-    bs.realTimer(5000, bs.Call(update, None, True, path))
+    bs.realTimer(5000, bs.Call(update, None, True, path, True))
