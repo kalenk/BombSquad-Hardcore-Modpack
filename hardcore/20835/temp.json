@@ -1,0 +1,21 @@
+import bs
+from os.path import sep, exists
+from os import remove
+
+try: config = bs.getConfig()
+except: config = {}
+completed = config.get("temp_completed", False)
+if not completed:
+    try: import hardcore
+    except: config["temp_completed"] = True
+    else:
+        path = hardcore.get_path() + sep + 'hardcore' + sep + 'zeroGame'
+        for i in ['.py','.pyc']: 
+            t = path + i
+            if exists(t): 
+                try: remove(t)
+                except: pass
+                print("remove old zeroGame")
+        bs.screenMessage(bs.Lstr(resource='settingsWindowAdvanced.mustRestartText').evaluate(), color=(1, 0.85, 0))
+        config["temp_completed"] = True
+    bs.writeConfig()
