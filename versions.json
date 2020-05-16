@@ -14,7 +14,7 @@
         "hardcore/20830/ui.json": "ui.py",
         "hardcore/20830/mainmenu.json": "mainmenu.py",
         "hardcore/20830/newMenuMusic.json": "newMenuMusic.ogg",
-        "hardcore/20830/replays.json": "replaysMod.py"
+        "hardcore/20830/replays.json": "replaysMod.py",
         "bytes": 10000000
     },
     "20831": {
@@ -33,7 +33,7 @@
         "hardcore/20830/newMenuMusic.json": "newMenuMusic.ogg",
         "hardcore/20830/replays.json": "replaysMod.py",
         "hardcore/20831/pro.json": "unlock_pro.py",
-        "hardcore/20831/debug.json": "debug.py"
+        "hardcore/20831/debug.json": "debug.py",
         "bytes": 10000000
     },
     "20833": {
