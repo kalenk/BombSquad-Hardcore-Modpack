@@ -142,6 +142,7 @@ class Downloader(threading.Thread):
 class DownloadBar(object):
     def __init__(self, size, color=(0.1, 0, 1), backgroundColor=(0.2, 0.2, 0.2)):
         global DOWNLOAD_BAR
+        import bsInternal
         bounds = bs.getUIBounds()
         if bsInternal._getSetting("TV Border"): m = 1.2
         else: m = 1.0
