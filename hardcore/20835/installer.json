@@ -143,8 +143,10 @@ class DownloadBar(object):
     def __init__(self, size, color=(0.1, 0, 1), backgroundColor=(0.2, 0.2, 0.2)):
         global DOWNLOAD_BAR
         bounds = bs.getUIBounds()
-        self._width = (bounds[1]-bounds[0])*2
-        self._height = (bounds[3]-bounds[2]-30)*0.075
+        if bsInternal._getSetting("TV Border"): m = 1.2
+        else: m = 1.0
+        self._width = (bounds[1]-bounds[0]) * 2 * m
+        self._height = (bounds[3]-bounds[2]-30) * 0.075 * m
 
         self._size = 0
         self._bytes = size
@@ -179,7 +181,7 @@ class DownloadBar(object):
             self.visible = visible
     def update(self, size=0):
         self._size += size
-        sc = self._width * (float(self._size)/float(max(1, self._bytes))) * 0.125
+        sc = self._width * (float(self._size)/float(max(1, self._bytes))) * 0.05
         dc = self._combine.input0
         bs.animate(self._combine, 'input0', {0: dc, 750: dc+sc})
     def delete(self, immediate=False):
@@ -320,6 +322,8 @@ def update(version=None, ignore_old=True, download_path=None, auto_update=False)
             c += 1
             bs.realTimer(500, bs.Call(download, urls.values()[c], paths.values()[c], True, True, True, check_end, paths, urls, c, files_count))
     def show_changelog(path, download_path, files_count, paths, urls):
+        global DOWNLOADS
+        DOWNLOADS = []
         try: data = json.load(open(path, 'r'))
         except: data = {}
 
@@ -338,6 +342,7 @@ def update(version=None, ignore_old=True, download_path=None, auto_update=False)
             height=175, textScale=0.9, action=call, 
             okText=bs.Lstr(resource='continueText'))
     def continue_download(download_path, data, v):
+        global DOWNLOADS
         DOWNLOADS = []
         url = (GITHUB_BRANCH+'/')
         if download_path is None: download_path = USER_SCRIPTS_PATH
@@ -348,12 +353,12 @@ def update(version=None, ignore_old=True, download_path=None, auto_update=False)
         spawn_bar(download_size=data[v].get("bytes", 0))
         if 'bytes' in data[v]: data[v].pop("bytes")
 
-        def d(data, u, p):
+        def d(data, u, p, urls, paths):
             if changeLogFile in data[v].values():
                 data[v].pop(data[v].keys()[data[v].values().index(changeLogFile)])
-                download(u, p, True, False, False, show_changelog, p, download_path, len(data[v]), paths, urls)
+                download(u, p, True, False, False, show_changelog, p, download_path, len(urls), paths, urls)
             else:
-                download(u, p, True, True, True, download, u, p, True, True, check_end, paths, urls, 0, len(data[v]))
+                download(u, p, True, True, True, download, u, p, True, True, check_end, paths, urls, 0, len(urls))
 
         files = {str(i.encode('utf-8')): str(data[v][i].encode('utf-8')) for i in data[v] if isinstance(i, unicode) and isinstance(data[v][i], unicode)}
 
@@ -376,8 +381,8 @@ def update(version=None, ignore_old=True, download_path=None, auto_update=False)
             if not os.path.exists(dirs):
                 try: os.makedirs(dirs)
                 except: pass
-        if changeLogFile in files.values(): d(data=data, u=changeLogFileUrl, p=changeLogFilePath)
-        else: d(data=data, u=urls[urls.keys()[0]], p=paths[paths.keys()[0]])
+        if changeLogFile in files.values(): d(data=data, u=changeLogFileUrl, p=changeLogFilePath, urls=urls, paths=paths)
+        else: d(data=data, u=urls[urls.keys()[0]], p=paths[paths.keys()[0]], urls=urls, paths=paths)
             
     def confirm_download(path, download_path):
         if not os.path.exists(path): return
