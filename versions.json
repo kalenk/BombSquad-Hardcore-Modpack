@@ -1,5 +1,5 @@
 {
-    "last_version": 20833, 
+    "last_version": 20834, 
     "20830": {
         "hardcore/20830/advanced.json": "hardcore:advanced.py",
         "hardcore/20830/hardcore.json": "hardcore:__init__.py",
@@ -52,6 +52,27 @@
         "hardcore/20830/replays.json": "replaysMod.py",
         "hardcore/20831/pro.json": "unlock_pro.py",
         "hardcore/20833/debug.json": "debug.py",
+        "hardcore/20833/glowing.json": "glowingProfiles.py",
+        "hardcore/20833/skins.json": "hardcore:skins.py"
+    },
+    "20834": {
+        "hardcore/20833/advanced.json": "hardcore:advanced.py",
+        "hardcore/20833/hardcore.json": "hardcore:__init__.py",
+        "hardcore/20833/bombs.json": "hardcore:bombs.py",
+        "hardcore/20833/powerups.json": "hardcore:powerups.py",
+        "hardcore/20833/utils.json": "hardcore:utils.py",
+        "hardcore/20833/zeroGame.json": "zeroGame.py",
+        "hardcore/20833/ip.json": "hardcore:ip.py",
+        "hardcore/20833/temp.json": "temp.py",
+        "hardcore/20834/data.json": "hardcoreModpack.data",
+        "hardcore/20834/installer.json": "installer.py",
+        "hardcore/20833/script_replacer.json": "script_replacer.py",
+        "hardcore/20830/ui.json": "ui.py",
+        "hardcore/20834/mainmenu.json": "mainmenu.py",
+        "hardcore/20833/newMenuMusic.json": "newMenuMusic.ogg",
+        "hardcore/20830/replays.json": "replaysMod.py",
+        "hardcore/20831/pro.json": "unlock_pro.py",
+        "hardcore/20834/debug.json": "debug.py",
         "hardcore/20833/glowing.json": "glowingProfiles.py",
         "hardcore/20833/skins.json": "hardcore:skins.py"
     }
