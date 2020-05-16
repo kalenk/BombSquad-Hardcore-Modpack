@@ -75,6 +75,6 @@
         "hardcore/20834/debug.json": "debug.py",
         "hardcore/20833/glowing.json": "glowingProfiles.py",
         "hardcore/20833/skins.json": "hardcore:skins.py",
-        "bytes": 6139959
+        "bytes": 6124974
     }
 }
