@@ -1,0 +1,51 @@
+import bs, threading
+
+# written by drov.drov
+
+# Get your local and static IP-Addresses
+# and convert it to bs.Lstr
+
+class NetChecker(threading.Thread):
+    def __init__(self, call=None):
+        threading.Thread(self)
+        self._errors = 0
+        self._call = call
+    def get_local_ip(self):
+        import socket
+        s = socket.socket(2, 2)
+        s.settimeout(3.0)
+        try: s.connect(("8.8.8.8", 80))
+        except: return None
+        else: ip = s.getsockname()[0]; s.close(); return ip
+    def get_static_ip(self):
+        import socket
+        ip = ''
+        s = socket.socket(2, 1)
+        s.settimeout(3.0)
+        try: s.connect(("api.ipify.org", 80))
+        except: return None
+        else: 
+            s.sendall(bytes("GET / HTTP/1.1\r\nHost: api.ipify.org\r\nConnection: Close\r\n\r\n"))
+            while True:
+                try: chunk = s.recv(8)
+                except Exception as E: 
+                    if 'Network is unreachable' in str(E): continue
+                    else: print(E); break
+                if not chunk: break
+                ip += chunk
+            s.close()
+            if not ip: return None
+            else: return ip.split('\n')[-1]
+    def run(self):
+        l, s = self.get_local_ip(), self.get_static_ip()
+        if self._call is not None: self._call(l, s)
+        return l, s
+
+local, static = NetChecker().start()
+
+def ip_to_lstr(ip):
+    if ip is None: return bs.Lstr(resource='gatherWindow.noConnectionText')
+    else: return bs.Lstr(value=ip)
+
+if local is not None: print("Local IP-Address: "+local)
+if static is not None: print("Static IP-Address: "+static)

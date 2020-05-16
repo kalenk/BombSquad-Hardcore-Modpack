@@ -1,0 +1,413 @@
+from bsInternal import _getForegroundHostActivity as get_activity
+from bsSpaz import Appearance, appearances
+from .advanced import update_setting, set_setting
+try: from .powerups import getFactory as gf # bruh moment
+except: from .advanced import get_settings
+else: get_settings = lambda : getattr(gf(), 'settings', {})
+import random
+import bsSpaz, bs
+
+# written by drov.drov
+
+NEW_CHARACTERS = ['Tntman','TNT','Bombman','Bagged Taobao','Invisible','Shard']
+GET_MEDIA = bsSpaz.SpazFactory._getMedia
+
+
+def change_skin(skin=None, players=[]):
+    a = get_activity()
+    if a is not None and isinstance(players, list) and len(players) > 0 and skin is not None:
+        for i in players:
+            if isinstance(i, int) and len(a.players) > i: i = a.players[i]
+            if isinstance(i, bs.Player): i = i.getInputDevice()._getAccountName(True)
+            if isinstance(i, str): 
+                try: i = i.decode('utf-8')
+                except: i = str(i.encode('utf-8')).decode('utf-8')
+                print("change_skin error no 1")
+            if isinstance(i, unicode): update_setting("skins", {i: str(skin)})
+
+def delete_skin(players=[]):
+    a = get_activity()
+    if a is not None and isinstance(players, list) and len(players) > 0:
+        for i in players:
+            if isinstance(i, int) and len(a.players) > i: i = a.players[i]
+            if isinstance(i, bs.Node) and hasattr(i, "getDelegate"):
+                i = i.getDelegate()
+                if hasattr(i, 'getPlayer'): i = i.getPlayer()
+                else: i = None
+            if isinstance(i, bs.Player): account = i.getInputDevice()._getAccountName(True)
+            if isinstance(i, str): 
+                try: i = player.decode('utf-8')
+                except: i = None
+                print("change_skin error no 1")
+            if isinstance(i, unicode): update_setting("skins", {i: ''}, add=False)
+
+class AttrCollector(bs.Actor):
+    # This class like thread.local, but
+    #  it kill itself when owner dies
+    #
+    # Always need argument 'owner'
+    #
+    #  node = bs.newNode(type='light')
+    #  c = AttrCollector(owner=node, bruh=1)
+    #  dir(c)
+    #  >>> ..., bruh
+    #  c.bruh
+    #  >>> 1
+    def __init__(self, *args):
+        if not isinstance(args, dict) or 'owner' not in args: raise ValueError()
+        bs.Actor.__init__(self)
+        self._args = args
+        for attr in self._args: super(AttrCollector, self).__setattr__(attr, self._args[attr])
+        if owner is not None and owner.exists(): owner.addDeathAction(self.__del__)
+        else: self.__del__()
+    def get_attrs(self):
+        return self._args
+    def set_attr(self, name, val):
+        setattr(self, name, val); self._args.update({name: val})
+    def get_attr(self, name, default_value=None):
+        return getattr(self, name, default_value)
+    def del_attrs(self):
+        args = self._args
+        for attr in args: delattr(self, attr)
+        self._args = {}
+    def handleMessage(self, msg):
+        if isinstance(msg, bs.DieMessage): self.del_attrs()
+
+class PermissionEffect(object):
+
+    def __init__(self, owner=None, prefix=None, prefixColor=(1, 1, 1),
+        prefixAnim='skin', particles=True, chunkType='spark', emitType='stickers'):
+
+        if owner is None or (owner is not None and not owner.exists()): return
+        self.owner = owner
+        tendrilType, spread, scale, count = None, None, 0.8, 10
+
+        if emitType not in ['stickers','distortion','tendrils']: emitType = None
+        if chunkType not in ['ice','rock','slime','spark','splinter','metal']: chunkType = None
+
+        if chunkType == 'spark': spread, scale, count = 0.05, 0.385, 10
+        elif chunkType == 'ice': spread, scale, count = 0.08, 0.385, 5
+        elif chunkType in ['rock','metal']: spread, scale, count = 1, 0.26, 8
+        elif chunkType == 'splinter': spread, scale, count = 2.0, 0.2, 3
+        elif chunkType == 'slime': spread, scale, count = 0.1, 0.385, 8
+
+        if emitType == 'tendrils': 
+            if chunkType is None: tendrilType = 'thinSmoke'
+            else: tendrilType = chunkType
+            count += 2
+        elif emitType == 'distortion': 
+            spread, count = 3.0, None
+        elif emitType == 'stickers': spread = 1.0
+        
+        data = {'emitType': emitType, 'chunkType': chunkType, \
+            'tendrilType': tendrilType, 'count': count, 'spread': spread,
+            'scale': scale}
+        data = {i: data[i] for i in data if data[i] is not None}
+        has_type = False
+        for i in ['chunkType','emitType','tendrilType']:
+            if i in data: 
+                has_type=True
+                break
+
+        def a():
+            self.emit_all(data=data)
+
+        if particles and has_type: AttrCollector(owner=self.owner, timer=bs.Timer(100, bs.Call(a), repeat=True)).autoRetain()
+        m = bs.newNode('math', owner=self.owner, attrs={'input1': (0, 1.55, 0), 'operation': 'add'})
+        self.owner.connectAttr('position', m, 'input2')
+        if prefix is not None:
+            self.prefix = bs.newNode('text', owner=self.owner,
+                attrs={'text': prefix, 
+                    'inWorld': True, 
+                    'shadow': 0.7, 
+                    'flatness': 1.0,
+                    'color': prefixColor, 
+                    'scale': 0.01, 
+                    'hAlign': 'center', 
+                    'maxWidth': 140})
+            m.connectAttr('output', self.prefix, 'position')
+            if isinstance(prefixAnim, dict) or prefixAnim in ['skin']: 
+                if prefixAnim == 'skin': prefixAnim = {0: self.owner.color, \
+                    5000: self.owner.highlight, 10000: self.owner.color}
+                bs.animateArray(self.prefix, 'color', 3, prefixAnim, True)
+    
+    def emit_all(self, data):
+        if hasattr(self.owner, 'position'):
+            bs.emitBGDynamics(position=tuple([self.owner.position[i]+random.uniform(-0.3,0.3) for i in range(3)]),
+                velocity=(0, 0, 0), **data)
+
+def __init__(self, color=(1, 1, 1), highlight=(0.5, 0.5, 0.5), character="Spaz", player=None, powerupsExpire=True):
+    a = get_activity()
+    if player is None: player = bs.Player(None)
+    settings = get_settings()
+    if a is not None:
+        with bs.Context(a):
+            account = player.getInputDevice()._getAccountName(True)
+            skin = settings.get("skins", {}).get(account, character)
+            if skin in bsSpaz.appearances.keys(): character = skin
+            else: character = get_unformat_skin_name(skin, character)
+    if character == "TNT": color, highlight = (1,1,1), (1,1,1)
+    bsSpaz.Spaz.__init__(self, color=color, highlight=highlight, character=character, sourcePlayer=player,
+                  startInvincible=True, powerupsExpire=powerupsExpire)
+    self.lastPlayerAttackedBy = None
+    self.lastAttackedTime = 0
+    self.lastAttackedType = None
+    self.heldCount = 0
+    self.lastPlayerHeldBy = None
+    self._player = player
+    if skin not in ["inv", "Invisible"]:
+        prefixes = settings.get("prefixes", {})
+        vips, admins, hosts = settings.get("vips", []), settings.get("admins", []), settings.get("hosts", [])
+        profiles = self._player.getInputDevice()._getPlayerProfiles()
+        if profiles == [] or profiles == {}: profiles = bs.getConfig()['Player Profiles']
+        if prefixes.get(account) is not None:
+            data = prefixes[account]
+            if isinstance(data, list): data = {data[0]: data[1]}
+            if isinstance(data, dict):
+                dt = {}
+                if 'chunkType' not in data or 'emitType' not in data or 'prefix' not in data or 'anim' not in data:
+                    if 'chunkType' not in data: dt.update({'chunkType': data.keys()[0]})
+                    else: dt.update({'chunkType': data['chunkType']})
+                    if 'emitType' not in data: dt.update({'emitType': 'stickers'})
+                    else: dt.update({'emitType': data['emitType']})
+                    if 'prefix' not in data: dt.update({'prefix': data.values()[0]})
+                    else: dt.update({'prefix': data['prefix']})
+                    if 'anim' not in data: dt.update({'anim': 'skin'})
+                    else: dt.update({'anim': data['anim']})
+                    if isinstance(dt['anim'], dict):   
+                        dr, sr = dt['anim'].keys(), dt['anim'].values()
+                        anim = {}
+                        dr = [int(i) for i in dr]
+                        for i in range(len(dr)): anim.update({dr[i]: sr[i]})
+                        dt['anim'] = anim
+                    data = dt
+                    prefixes.update({account: data})
+                    set_setting("prefixes", prefixes)
+                PermissionEffect(owner=self.node, prefix=data.get('prefix', ''), prefixAnim=dt.get('anim', 'skin'), \
+                    chunkType=data.get('chunkType', 'spark'), emitType=data.get('emitType', 'stickers'))
+        elif settings.get("admins_prefix", False):
+            if account in vips or account in admins or account in hosts:
+                anim = {0: (0, 1, 1), 2500: (1, 0, 1), 5000: (0, 1, 1)}
+                if account in hosts: prefix = 'Host'
+                elif account in admins: prefix = 'Admin'
+                elif account in vips: prefix, anim = 'VIP', {0: (1, 1, 0), 2500: (1, 0.75, 0), 5000: (1, 1, 0)}
+                PermissionEffect(owner=self.node, prefix=prefix, prefixAnim=anim)
+    if player.exists():
+        playerNode = bs.getActivity()._getPlayerNode(player)
+        self.node.connectAttr('torsoPosition', playerNode, 'position')
+
+def _getMedia(self, character):
+    if character in NEW_CHARACTERS:
+        t = appearances[character]
+        if not self.spazMedia.has_key(character):
+            m = self.spazMedia[character] = {
+                'jumpSounds':[bs.getSound(s) for s in t.jumpSounds],
+                'attackSounds':[bs.getSound(s) for s in t.attackSounds],
+                'impactSounds':[bs.getSound(s) for s in t.impactSounds],
+                'deathSounds':[bs.getSound(s) for s in t.deathSounds],
+                'pickupSounds':[bs.getSound(s) for s in t.pickupSounds],
+                'fallSounds':[bs.getSound(s) for s in t.fallSounds],
+                'colorTexture': bs.getTexture(t.colorTexture) if t.colorTexture != '' else None,
+                'colorMaskTexture': bs.getTexture(t.colorMaskTexture) if t.colorMaskTexture != '' else None,
+                'headModel': bs.getModel(t.headModel) if t.headModel != '' else None,
+                'torsoModel': bs.getModel(t.torsoModel) if t.torsoModel != '' else None,
+                'pelvisModel': bs.getModel(t.pelvisModel) if t.pelvisModel != '' else None,
+                'upperArmModel': bs.getModel(t.upperArmModel) if t.upperArmModel != '' else None,
+                'foreArmModel': bs.getModel(t.foreArmModel) if t.foreArmModel != '' else None,
+                'handModel': bs.getModel(t.handModel) if t.handModel != '' else None,
+                'upperLegModel': bs.getModel(t.upperLegModel) if t.upperLegModel != '' else None,
+                'lowerLegModel': bs.getModel(t.lowerLegModel) if t.lowerLegModel != '' else None,
+                'toesModel': bs.getModel(t.toesModel) if t.toesModel != '' else None
+            }
+        else: m = self.spazMedia[character]
+        return m
+    else:
+        return GET_MEDIA(self, character)
+
+def get_format_skin_name(name):
+    result = 'spaz'
+    if name == "B-9000": result = "cyborg"
+    elif name == "Agent Johnson": result = "agent"
+    elif name == "Santa Claus": result = "santa"
+    elif name == "Pixel": result = "pixie"
+    elif name == "Pascal": result = "penguin"
+    elif name == "Easter Bunny": result = "bunny"
+    elif name == "Taobao Mascot": result = "taobao"
+    elif name == "Jack Morgan": result = "pirate"
+    elif name == "Bernard": result = "bear"
+    elif name == "Invisible": result = "inv"
+    elif name == "TNT": result = "tnt"
+    elif name == "Tntman": result = "tnt.man"
+    elif name == "Bombman": result = "bomb.man"
+    elif name == "Snake Shadow": result = "ninja"
+    elif name == "Grumbledorf": result = "wizard"
+    else:
+        format_name = name.lower().replace(".", "").replace("-","").split(" ")
+        if len(format_name) > 1: result = format_name[1]
+        else: result = format_name[0]
+    return result
+
+def get_unformat_skin_name(name, default_skin="Spaz"):
+    result = default_skin
+    if name == "cyborg": result = "B-9000"
+    elif name == "agent": result = "Agent Johnson"
+    elif name == "santa": result = "Santa Claus"
+    elif name == "pixie": result = "Pixel"
+    elif name == "penguin": result = "Pascal"
+    elif name == "bunny": result = "Easter Bunny"
+    elif name == "taobao": result = "Taobao Mascot"
+    elif name == "pirate": result = "Jack Morgan"
+    elif name == "bear": result = "Bernard"
+    elif name == "bomb.man": result = "Bombman"
+    elif name == "tnt.man": result = "Tntman"
+    elif name == "tnt": result = "TNT"
+    elif name in ["invisible", "i"]: result = "Invisible"
+    elif name == "shard": result = "Shard"
+    elif name == "ninja": result = "Snake Shadow"
+    elif name == "wizard": result = "Grumbledorf"
+    else:
+        for i in appearances.keys():
+            skin_name = i.lower().replace(".", "").replace("-","")
+            if name.lower() in skin_name: 
+                result = i
+                break
+    return result if result in appearances.keys() else appearances.keys()[0]
+
+
+t = Appearance("TNT")
+
+t.colorTexture = "tnt"
+t.colorMaskTexture = "tnt"
+t.iconTexture = "tnt"
+t.iconMaskTexture = "tnt"
+t.headModel = ""
+t.torsoModel = "tnt"
+t.pelvisModel = ""
+t.upperArmModel = ""
+t.foreArmModel = ""
+t.handModel = ""
+t.upperLegModel = ""
+t.lowerLegModel = ""
+t.toesModel = ""
+t.jumpSounds = t.attackSounds = t.impactSounds = t.deathSounds = t.pickupSounds = t.fallSounds = []
+t.style = 'bones'
+
+
+
+t = Appearance("Shard")
+
+t.colorTexture = "star"
+t.colorMaskTexture = "star"
+t.iconTexture = "star"
+t.iconMaskTexture = "star"
+t.headModel = ""
+t.torsoModel = "flagStand"
+t.pelvisModel = ""
+t.upperArmModel = ""
+t.foreArmModel = ""
+t.handModel = ""
+t.upperLegModel = ""
+t.lowerLegModel = ""
+t.toesModel = ""
+t.jumpSounds = t.attackSounds = t.impactSounds = t.deathSounds = t.pickupSounds = t.fallSounds = []
+t.style = 'bones'
+
+
+
+t = Appearance("Tntman")
+
+t.colorTexture = "tnt"
+t.colorMaskTexture = "tnt"
+t.iconTexture = "logo"
+t.iconMaskTexture = "logo"
+t.headModel = "tnt"
+t.torsoModel = "buttonNull"
+t.pelvisModel = "buttonNull"
+t.upperArmModel = "buttonNull"
+t.foreArmModel = "buttonNull"
+t.handModel = "boxingGlove"
+t.upperLegModel = "buttonNull"
+t.lowerLegModel = "buttonNull"
+t.toesModel = "buttonNull"
+t.jumpSounds=["spazJump01", "spazJump02", "spazJump03", "spazJump04"]
+t.attackSounds=["spazAttack01", "spazAttack02", "spazAttack03", "spazAttack04"]
+t.impactSounds=["spazImpact01", "spazImpact02", "spazImpact03", "spazImpact04"]
+t.deathSounds=["spazDeath01"]
+t.pickupSounds=["spazPickup01"]
+t.fallSounds=["spazFall01"]
+t.style = 'bones'
+
+
+
+t = Appearance("Bombman")
+
+t.colorTexture = "bombColor"
+t.colorMaskTexture = "bombColor"
+t.iconTexture = "glow"
+t.iconMaskTexture = "null"
+t.defaultColor = (0.3, 0.5, 0.8)
+t.defaultHighlight = (1, 0, 0)
+t.headModel = "bomb"
+t.torsoModel = "warriorTorso"
+t.pelvisModel = "warriorPelvis"
+t.upperArmModel = "warriorUpperArm"
+t.foreArmModel = "warriorForeArm"
+t.handModel = "warriorHand"
+t.upperLegModel = "warriorUpperLeg"
+t.lowerLegModel = "warriorLowerLeg"
+t.toesModel = "warriorToes"
+t.attackSounds = ['warrior1', 'warrior2', 'warrior3', 'warrior4']
+t.jumpSounds = ['warrior1', 'warrior2', 'warrior3', 'warrior4']
+t.impactSounds = ['warriorHit1', 'warriorHit2']
+t.deathSounds=["warriorDeath"]
+t.pickupSounds = ['warrior1', 'warrior2', 'warrior3', 'warrior4']
+t.fallSounds=["warriorFall"]
+t.style = 'bones'
+
+
+
+t = Appearance("Bagged Taobao")
+
+t.colorTexture = "robotColor"
+t.colorMaskTexture = "robotColorMask"
+t.iconTexture = "bombButton"
+t.iconMaskTexture = "logo"
+t.headModel = "aliHead"
+t.torsoModel = "buttonNull"
+t.pelvisModel = "buttonNull"
+t.upperArmModel = "buttonNull"
+t.foreArmModel = "buttonNull"
+t.handModel = "boxingGlove"
+t.upperLegModel = "buttonNull"
+t.lowerLegModel = "buttonNull"
+t.toesModel = "buttonNull"
+t.jumpSounds=["spazJump01", "spazJump02", "spazJump03", "spazJump04"]
+t.attackSounds=["spazAttack01", "spazAttack02", "spazAttack03", "spazAttack04"]
+t.impactSounds=["spazImpact01", "spazImpact02", "spazImpact03", "spazImpact04"]
+t.deathSounds=["spazDeath01"]
+t.pickupSounds=["spazPickup01"]
+t.fallSounds=["spazFall01"]
+t.style = 'bunny'
+
+
+
+t = Appearance("Invisible")
+
+t.colorTexture = "null"
+t.colorMaskTexture = "null"
+t.iconTexture = "null"
+t.iconMaskTexture = "null"
+t.headModel = ""
+t.torsoModel = ""
+t.pelvisModel = ""
+t.upperArmModel = ""
+t.foreArmModel = ""
+t.handModel = ""
+t.upperLegModel = ""
+t.lowerLegModel = ""
+t.toesModel = ""
+t.jumpSounds = t.attackSounds = t.impactSounds = t.deathSounds = t.pickupSounds = t.fallSounds = []
+t.style = 'bones'
+
+bsSpaz.PlayerSpaz.__init__ = __init__
+bsSpaz.SpazFactory._getMedia = _getMedia
