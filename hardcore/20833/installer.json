@@ -37,7 +37,7 @@ class ConfirmWindow(ConfirmWindowUI):
         if self._cancelAction is not None: self._cancelAction()
 
 class ConfirmWindowUI2(ConfirmWindowUI):
-    def __init__(self, text="Are you sure?", description="Bruh", 
+    def __init__(self, text="Are you sure?", 
         action=None, width=360, height=100, cancelIsSelected=False,
         color=(1, 1, 1), textScale=1.0, okText=None, cancelText=None, 
         originWidget=None, cancelButton=True):
@@ -189,7 +189,7 @@ translates = {
         "installThisVersion?": "Установить версию {}?",
         "updateDesc": "Найдено обновление {}.\nУстановить?",
         "update": "Обновление",
-        "changelog": "Список изменений"},
+        "changelog": "Изменения"},
     "English": {
         "installCompleted": "Modpack successfully installed!",
         "appDataReset": "App Data Reset",
@@ -240,7 +240,7 @@ def update(version=None, ignore_old=True, download_path=None, auto_update=False)
                 json.dump(data, open(paths[c], 'w+'), indent=4, sort_keys=True)
                 changelog = ch = str(data.get("changelog", "").encode('utf-8'))
                 for s in changelog.split('\n'): ch.replace(s, '- ' + s)
-                ConfirmWindowUI(text=bs.Lstr(value=translates["changelog"]), description=bs.Lstr(value=ch), height=175, textScale=0.9)
+                ConfirmWindow(text=bs.Lstr(value=translates["changelog"]), description=bs.Lstr(value=ch), height=175, textScale=0.9)
             bs.screenMessage(translates["successfullyDownloaded"].format(filename), color=colorYellow)
             if len(DOWNLOADS)-1 == cnt_end: 
                 import sys
