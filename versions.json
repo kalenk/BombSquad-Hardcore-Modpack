@@ -25,8 +25,8 @@
         "hardcore/20836/fast_commands.json": "fast_commands.py",
         "hardcore/20836/server_search.json": "server_search.py",
         "hardcore/20836/preload.json": "hardcore_preload.py",
-        "bytes": 3533779,
-        "additional_bytes": 3635679,
+        "bytes": 3529436,
+        "additional_bytes": 3633781,
         "additional_files": {
             "hardcore/20836/beerModel.json": "beerModel.bob",
             "hardcore/20836/beerTexKtx.json": "beerTex.ktx",
