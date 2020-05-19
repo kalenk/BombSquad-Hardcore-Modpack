@@ -1,0 +1,74 @@
+import bsUtils
+import bs
+import bsLobby
+import bsInternal
+import bsSpaz
+import random
+
+HANDLE_MESSAGE = bsLobby.Chooser.handleMessage
+UPDATE_FROM_PLAYER_PROFILE = bsLobby.Chooser.updateFromPlayerProfile
+MARKERS = ['"',"'","^","%",";","`"]
+
+def handleMessage(self, msg):
+    if isinstance(msg, bsLobby.ChangeMessage):
+        now = bs.getRealTime()
+        if not hasattr(self, 'lastChange'): self.lastChange = [now, 0]
+        count = self.lastChange[1] + 1
+        if now - self.lastChange[0] < 50 and count > 30:
+            bsInternal._disconnectClient(self._player.getInputDevice().getClientID(), 600)
+        self.lastChange = [now, count]
+    HANDLE_MESSAGE(self, msg=msg)
+
+def getGlowingColors(self):
+    markers = MARKERS; glow = {}
+    try:
+        for i in self.profileNames:
+            for m in markers:
+                if m in i.encode('utf-8') and "," in i.encode("utf-8"):
+                    code = i.encode("utf-8").split(",")
+                    result = []
+                    if len(code) > 4:
+                        if code[0] in markers:
+                            result.append(code[0])
+                            for c in [1, 2]: result.append(min(float(code[c]), 10) if float(code[c]) > 0 else max(-10, float(code[c])))
+                            for d in [3, 4]: result.append(bool(int(code[d])))
+                    elif len(code) == 4:
+                        marker = ("").join([i for i in code[0] if i not in ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"]])
+                        if marker in markers:
+                            result.append(marker)
+                            for c in [0, 1]:
+                                code[c] = code[c].replace(marker, '')
+                                result.append(min(float(code[c]), 10) if float(code[c]) > 0 else max(-10, float(code[c])))
+                            for d in [2, 3]: result.append(bool(int(code[d])))
+                    if len(result) == 5: glow.update({result[0]: result[1:]})
+    except Exception as E: print(E)
+    return glow
+
+def updateFromPlayerProfile(self):
+    try:
+        self.profileName = self.profileNames[self.profileIndex]
+        character = self.profiles[self.profileName].get('character', 'Spaz')
+        if character not in self.characterNames and character in bsSpaz.appearances: self.characterNames.append(character)
+        self.characterIndex = self.characterNames.index(character)
+        marker = self.profileName.encode('utf-8')[0] if self.profileName.encode('utf-8')[0] in MARKERS else None
+        if marker is not None:
+            glow = getGlowingColors(self).get(marker, [1, 1, 0, 0])
+            cM, hM, stabilizeC, stabilizeH = glow[0], glow[1], glow[2], glow[3]
+
+            self._color, self._highlight = bsUtils.getPlayerProfileColors(self.profileName, profiles=self.profiles)
+            
+            d = ((self._color, cM, stabilizeC), (self._highlight, hM, stabilizeH))
+            for val, c, stabilize in d:
+                v = val
+                if not stabilize: val = (v[0]*c, v[1]*c, v[2]*c)
+                else: m = max(val); val = (m*c, m*c, m*c)
+
+                if v == self._color: self._color = val
+                else: self._highlight = val
+            self._updateIcon(); self._updateText()
+        else: 
+            UPDATE_FROM_PLAYER_PROFILE(self)
+    except Exception as E: print(E); UPDATE_FROM_PLAYER_PROFILE(self)
+
+bsLobby.Chooser.updateFromPlayerProfile = updateFromPlayerProfile
+bsLobby.Chooser.handleMessage = handleMessage

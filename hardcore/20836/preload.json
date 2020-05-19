@@ -1,0 +1,7 @@
+import hardcore.powerups
+import hardcore.bombs
+import hardcore.hardmode
+from hardcore.advanced import check_settings
+check_settings()
+
+print("preload completed")

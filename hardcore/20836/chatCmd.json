@@ -1,0 +1,83 @@
+﻿# -*- coding: utf-8 -*-
+import bs, bsInternal
+from .utils import bigger_than_zero, Box, dayCycle, \
+    find_players_and_bots, get_account_string, \
+    is_account, check_account, is_num, send_message, \
+    set_motion, set_tint, get_tint, get_motion, \
+    get_normal_tint, MAPS, MAPS_TINT, \
+    set_setting, update_setting, \
+    get_settings, format_spaces, text_split, \
+    change_skin, delete_skin, get_activity
+
+DISCONNECT_CLIENT = bsInternal._disconnectClient
+
+# written by drov.drov
+
+SETTINGS = {}
+LAST_INFO = None
+
+def update_settings():
+    global SETTINGS
+    activity = get_activity()
+    if hasattr(activity, '_sharedNEWPowerupFactory'): 
+        SETTINGS = getattr(activity._sharedNEWPowerupFactory, 'settings', {})
+    else: SETTINGS = get_settings()
+    return SETTINGS
+
+class PlayerInfo(object):
+    def __init__(self, clientID=-1, settings={}):
+        self.clientID = clientID
+        self.account = None
+        self.settings = settings
+        self.player = None
+        self.update()
+    def exists(self):
+        return (self.player is not None and self.player.exists())
+    def get_account(self, update=True):
+        if update:
+            self.account = None
+            activity = get_activity()
+            if activity is not None and hasattr(activity, 'players'):
+                for player in activity.players:
+                    id = player.getInputDevice().getClientID() 
+                    if id == self.clientID: 
+                        self.account = player.get_account_id()
+                        self.player = player
+                        break
+        return self.account
+    def get_player(self):
+        return self.player
+    def update(self):
+        self.prev = 0
+        self.account = self.get_account(True)
+        if self.account is not None:
+            prevs = ((3, 'hosts'), (2, 'admins'), (1, 'vips'))
+            for p in prevs:
+                if self.account in self.settings.get(p[1], []):
+                    self.prev = p[0]
+                    break
+        if self.clientID == -1: self.prev = 3
+
+def send(msg, clientID=-1):
+    global LAST_INFO
+    if 1 or get_activity() is None: # UPDATE
+        return
+    update_settings()
+    if LAST_INFO is not None: player = LAST_INFO; LAST_INFO = None
+    else:
+        player = PlayerInfo(clientID=clientID, settings=SETTINGS)
+    msg = msg.replace("/","")
+    for m in msg.split(";"):
+        m = format_spaces(msg=m)
+
+# may call from bsUI 
+def can_write_chat_messages(clientID):
+    global LAST_INFO
+    LAST_INFO = PlayerInfo(clientID=clientID, settings=SETTINGS)
+    if LAST_INFO.account in SETTINGS.get("muted", []): return False
+    else: return True
+
+def _disconnectClient(clientID=-1, banTime=300):
+    pass
+
+bsInternal._disconnectClient = _disconnectClient 

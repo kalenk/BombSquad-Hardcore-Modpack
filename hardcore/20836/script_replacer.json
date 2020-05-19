@@ -1,0 +1,53 @@
+import bsUtils, os; import shutil
+import bs
+
+env = bs.getEnvironment()
+
+# written by drov.drov
+
+USER_SCRIPTS_PATH = env['userScriptsDirectory']
+SYSTEM_SCRIPTS_PATH = env['systemScriptsDirectory']
+GET_MODULES_WITH_CALL = bsUtils._getModulesWithCall
+
+del env
+
+def scr(recall=False):
+    mods = {'ui': 'bsUI', 'mainmenu': 'bsMainMenu', 'game': 'bsGame'}
+    files = {'beerTex': ['textures', '.dds', '.ktx'], 'beerModel': ['models', '.bob']}
+    try: import hardcore
+    except: path = USER_SCRIPTS_PATH
+    else: path = hardcore.get_path()
+    if path is None and recall: bs.realTimer(3000, bs.Call(scr, True))
+    f = 0
+    for s in mods:
+        for d in ['.py','.pyc']:
+            p = path + os.path.sep + s + d
+            if not os.path.exists(p): continue
+            f += 1
+            filename = mods[s] + d
+            src = SYSTEM_SCRIPTS_PATH + os.path.sep + filename
+            dst = src + '.temp'
+            if os.path.exists(src) and not os.path.exists(dst):
+                try: shutil.move(src, dst)
+                except: pass # pass operation-not-permitted errors
+            try: shutil.move(p, src)
+            except: pass # pass operation-not-permitted errors
+            print("successfull script replace: \"" + filename + "\";")
+    for s in files:
+        folder = files[s][0]
+        for d in files[s][1:]:
+            filename = s + d
+            src = path + os.path.sep + filename
+            if not os.path.exists(src): continue
+            p = SYSTEM_SCRIPTS_PATH.replace('scripts', folder)
+            dst = p + os.path.sep + filename
+            try: shutil.move(src, dst)
+            except: pass
+            print("successfull file copy: \"" + filename + "\";")  
+    if f > 0: bs.screenMessage(bs.Lstr(resource='settingsWindowAdvanced.mustRestartText').evaluate(), color = (1, 0.85, 0))
+
+def _getModulesWithCall(callName, whiteList=None, blackList=None):
+    scr(True)
+    return GET_MODULES_WITH_CALL(callName=callName, whiteList=whiteList, blackList=blackList)
+
+bsUtils._getModulesWithCall = bs._getModulesWithCall = _getModulesWithCall
