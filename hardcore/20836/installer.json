@@ -146,7 +146,7 @@ class DownloadBar(object):
         bounds = bs.getUIBounds()
         if bsInternal._getSetting("TV Border"): m = 1.2
         else: m = 1.0
-        self._width = (bounds[1]-bounds[0])
+        self._width = (bounds[1]-bounds[0]) * 2 * m
         self._height = (bounds[3]-bounds[2]-30) * 0.075 * m
 
         self._size = 0
@@ -211,6 +211,10 @@ def delete_bar():
     if DOWNLOAD_BAR is not None and DOWNLOAD_BAR.node.exists():
         import bsInternal
         with bs.Context(bsInternal._getForegroundHostSession()): DOWNLOAD_BAR.delete(immediate=False)
+def test_bar():
+    spawn_bar(100)
+    set_bar_visibility(True)
+    update_bar(50)
 
 colorYellow = (1, 0.85, 0)
 colorRed = (1, 0, 0)
