@@ -5,7 +5,7 @@ from inspect import isclass as is_class
 from bsUI import ConfirmWindow as ConfirmWindowUI
 import time, threading
 
-debug = 2
+debug = 4
 
 class ConfirmWindow(ConfirmWindowUI):
     def __init__(self, text="Are you sure?", description="Bruh", 
@@ -115,26 +115,26 @@ class Downloader(threading.Thread):
             if self.errors_count > 49: return
             if debug > 1:
                 for i in ["chunk lost: ", E, "try again..."]: print(i)
-            bs.realTimer(3000, self.chunk); return
+            bs.realTimer(500, self.chunk); return
         if not c: self.end(); return
         d = len(c)
         self._b += d
         if self._size_callback: update_bar(d)
         f.write(c); f.flush()
-        bs.realTimer(1000, self.chunk)
+        bs.realTimer(int(min(1000, (d/524288)*1000)), self.chunk)
     def open_file(self, path):
         try: f = open(path, 'w+')
         except Exception as E: 
             self.errors_count += 1; print("file open error;"); print(E)
             if self.errors_count > 4: return None
-            else: return ReturnTimer(1000, self.open_file, path).start()
+            else: return ReturnTimer(500, self.open_file, path).start()
         else: self.errors_count = 0; return f
     def open_url(self, url): 
         try: u = urllib2.urlopen(url)
         except Exception as E: 
             self.errors_count += 1; print("url open error; "+url); print(E)
             if self.errors_count > 29: return None
-            else: return ReturnTimer(1000, self.open_url, url).start()
+            else: return ReturnTimer(500, self.open_url, url).start()
         else: self.errors_count = 0; return u
     def run(self):
         self.download()
@@ -183,9 +183,9 @@ class DownloadBar(object):
             self.visible = visible
     def update(self, size=0):
         self._size += size
-        sc = self._width * 2 * (float(self._size)/float(max(1, self._bytes)))
+        sc = self._width * (float(self._size)/float(max(1, self._bytes))) * 2
         dc = self._combine.input0
-        bs.animate(self._combine, 'input0', {0: dc, 750: dc+sc})
+        bs.animate(self._combine, 'input0', {0: dc, 750: sc})
     def delete(self, immediate=False):
         for node in [self.node, self.background]:
             def delete_immediately(node):
