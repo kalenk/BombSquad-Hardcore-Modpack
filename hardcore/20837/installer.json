@@ -450,7 +450,7 @@ def update(version=None, ignore_old=True, download_path=None, auto_update=False)
             return
 
         call = bs.Call(continue_download, download_path, data, v)
-        v = str(data.get('last_version_str', data['last_version']))
+        v = str(data.get('last_version_str', str(data['last_version'])).encode('utf-8'))
         if not auto_update: 
             ConfirmWindow2(text=bs.Lstr(value=translates["installThisVersion?"].format(v)), 
                 action=call)
