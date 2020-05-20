@@ -1,0 +1,228 @@
+# -*- coding: utf-8 -*-
+import bs, bsUI, bsInternal, weakref
+from bsUI import gSmallUI, gMedUI
+PARTY_WINDOW = bsUI.PartyWindow
+POPUP_WINDOW = bsUI.PopupWindow
+POPUP_MENU_WINDOW = bsUI.PopupMenuWindow
+
+# written by drov.drov
+
+translates = {
+    "Russian": {
+        "@player": "Упомянуть",
+        "lastCommand": "Последняя команда",
+        "lastMessage": "Последнее сообщение"
+    },
+    "English": {
+        "@player": "Mention",
+        "lastCommand": "Last command",
+        "lastMessage": "Last message"
+    }
+}
+translates = translates.get(bs.getLanguage(), translates["English"])
+
+class PopupMenuWindow(POPUP_MENU_WINDOW):
+    def __init__(self, position, choices, currentChoice, delegate=None, width=230,
+        maxWidth=None, scale=1.0, choicesDisabled=[],
+        choicesDisplay=[], autoSelect=None, color = (0.35,0.55,0.15)):
+        choicesDisplayNew = []
+        for choice in choicesDisplay:
+            if type(choice) is bs.Lstr:
+                choicesDisplayNew.append(choice.evaluate())
+            else:
+                bs.printErrorOnce(
+                    'PopupMenuWindow got a raw string in \'choicesDisplay\';'
+                    ' please pass bs.Lstr values only')
+                choicesDisplayNew.append(choice)
+        choicesDisplay = choicesDisplayNew
+        parent = None
+        if maxWidth is None: maxWidth = width * 1.5
+        self._transitioningOut = False
+        self._choices = list(choices)
+        self._choicesDisplay = list(choicesDisplay)
+        self._currentChoice = currentChoice
+        self._choicesDisabled = list(choicesDisabled)
+        self._doneBuilding = False
+        if len(choices) < 1:
+            raise Exception("Must pass at least one choice")
+        self._width = width
+        self._scale = scale
+        if len(choices) > 8:
+            self._height = 280
+            self._useScroll = True
+        else:
+            self._height = 20+len(choices)*33
+            self._useScroll = False
+        self._delegate = None  # dont want this stuff called just yet..
+
+        # extend width to fit our longest string (or our max-width)
+        for index, choice in enumerate(choices):
+            if len(choicesDisplay) == len(choices):
+                choiceDisplayName = choicesDisplay[index]
+            else:
+                choiceDisplayName = choice
+            if self._useScroll:
+                self._width = max(self._width, min(
+                    maxWidth, bsInternal._getStringWidth(
+                        choiceDisplayName, suppressWarning=True))+75)
+            else:
+                self._width = max(self._width, min(
+                    maxWidth, bsInternal._getStringWidth(
+                        choiceDisplayName, suppressWarning=True))+60)
+
+        POPUP_WINDOW.__init__(self, position, size=(self._width, self._height), scale=self._scale, bgColor = color)
+
+        if self._useScroll:
+            self._scrollWidget = bs.scrollWidget(
+                parent=self._rootWidget, position=(20, 20),
+                highlight=False, color=(0.35, 0.55, 0.15),
+                size=(self._width - 40, self._height - 40))
+            self._columnWidget = bs.columnWidget(parent=self._scrollWidget)
+        else:
+            self._offsetWidget = bs.containerWidget(
+                parent=self._rootWidget, position=(30, 15),
+                size=(self._width - 40, self._height),
+                background=False)
+            self._columnWidget = bs.columnWidget(parent=self._offsetWidget)
+        for index, choice in enumerate(choices):
+            if len(choicesDisplay) == len(choices):
+                choiceDisplayName = choicesDisplay[index]
+            else:
+                choiceDisplayName = choice
+            inactive = (choice in self._choicesDisabled)
+            w = bs.textWidget(
+                parent=self._columnWidget, size=(self._width - 40, 28),
+                onSelectCall=bs.Call(self._select, index),
+                clickActivate=True, color=(0.5, 0.5, 0.5, 0.5)
+                if inactive
+                else(
+                    (0.5, 1, 0.5, 1)
+                    if choice == self._currentChoice else(0.8, 0.8, 0.8, 1.0)),
+                padding=0, maxWidth=maxWidth, text=choiceDisplayName,
+                onActivateCall=self._activate, vAlign='center',
+                selectable=False if inactive else True)
+            if choice == self._currentChoice:
+                bs.containerWidget(edit=self._columnWidget,
+                                   selectedChild=w, visibleChild=w)
+        self._delegate = weakref.ref(delegate)
+        self._doneBuilding = True
+
+class PartyWindow(PARTY_WINDOW):
+    def __init__(self, origin=(0, 0)):
+        PARTY_WINDOW.__init__(self, origin=origin)
+        bs.containerWidget(edit=self._rootWidget, color=(0.325, 0.325, 0.335))
+        bs.buttonWidget(edit=self._menuButton, color=(0.35, 0.35, 0.45))
+        bs.buttonWidget(edit=self._cancelButton, color=(0.35, 0.35, 0.45))
+        bs.scrollWidget(edit=self._scrollWidget, color=(0.35, 0.35, 0.35))
+        bs.textWidget(edit=self._titleText, color=(0.85, 0.85, 0.85))
+        widgets = self._rootWidget.getChildren()
+        w = widgets[-1]
+        if w.getWidgetType() == 'button': w.delete()
+        b = bs.buttonWidget(
+            parent=self._rootWidget, size=(50, 35),
+            label=bs.Lstr(resource=self._r + '.sendText'),
+            buttonType='square', autoSelect=True,
+            position=(self._width - 70, 35),
+            color=(0.35, 0.35, 0.47),
+            onActivateCall=self._sendChatMessage)
+        self._messagesButton = bs.buttonWidget(
+            parent=self._rootWidget, size=(35, 35),
+            label=bs.Lstr(value='⋮'),
+            buttonType='square', autoSelect=True,
+            position=(self._width - 110, self._height - 47),
+            onActivateCall=bs.Call(self._onMessagesButtonPress), 
+            color=(0.35,0.35,0.47))
+        self._updateRosterTimer = bs.Timer(1000, bs.WeakCall(self._update_roster), repeat=True, timeType='real')
+    def _update_roster(self):
+        self._roster = bsInternal._getGameRoster()
+    def _addMsg(self, msg="", color=(1,1,1)):
+        t = bs.textWidget(parent=self._columnWidget, 
+            text=msg, hAlign='left', 
+            vAlign='center', size=(0, 13),
+            scale=0.55, maxWidth=self._scrollWidth * 0.94, 
+            shadow=0.3, flatness=1.2, color=color)
+        self._chatTexts.append(t)
+        if len(self._chatTexts) > 40:
+            first = self._chatTexts.pop(0)
+            first.delete()
+        bs.containerWidget(edit=self._columnWidget, visibleChild=t)
+    def _onMessagesButtonPress(self):
+        choices = ["@player", "lastCommand", "lastMessage"]
+        choicesDisplay = [bs.Lstr(value=translates[i]) for i in choices]
+        bsUI.PopupMenuWindow(
+            position=self._messagesButton.getScreenSpaceCenter(),
+            scale=1.3,
+            choices=choices,
+            choicesDisplay=choicesDisplay, 
+            currentChoice=None, 
+            color = (0.35, 0.36, 0.4), delegate=self)
+        self._popupType = 'messages'
+    def _onMenuButtonPress(self):
+        isMuted = bsInternal._getSetting('Chat Muted')
+        PopupMenuWindow(
+            position=self._menuButton.getScreenSpaceCenter(),
+            scale=2.3 if gSmallUI else 1.65 if gMedUI else 1.23,
+            choices=['unmute' if isMuted else 'mute'],
+            choicesDisplay=[bs.Lstr(
+                resource='chatUnMuteText'
+                if isMuted else 'chatMuteText')],
+            currentChoice='unmute' if isMuted else 'mute', 
+            color = (0.35, 0.36, 0.4),
+            delegate=self)
+        self._popupType = 'menu'
+    def popupMenuSelectedChoice(self, popupWindow, choice):
+        if self._popupType == 'messages':
+            if choice == 'lastMessage':
+                msgs = bsInternal._getChatMessages()
+                if len(msgs) > 0: bsInternal._chatMessage(": ".join(msgs[-1].split(": ")[1:]))
+                else: bs.screenMessage(bs.Lstr(resource='getTicketsWindow.unavailableTemporarilyText'), color=(1, 0, 0))
+            elif choice == '@player':
+                if len(self._roster) > 0: accounts = [i["displayString"].decode('utf-8') for i in self._roster]
+                else: accounts = [bsInternal._getAccountDisplayString(True)]
+                bsUI.PopupMenuWindow(
+                    position=self._messagesButton.getScreenSpaceCenter(),
+                    scale=1.25,
+                    choices=accounts,
+                    choicesDisplay=[bs.Lstr(value=i) for i in accounts],
+                    currentChoice=None,
+                    color = (0.35,0.36,0.4), delegate=self)
+            elif choice == 'lastCommand':
+                msgs = bsInternal._getChatMessages()
+                msgs.reverse()
+                nicknames = []; nickname = None
+                account = bsInternal._getAccountDisplayString(True)
+                for i, msg in enumerate(msgs):
+                    n = msg.split(": ")[0]
+                    nicknames.append((i, n))
+                if len(self._roster) > 0: 
+                    for i in self._roster:
+                        if i['displayString'].decode('utf-8') == account:
+                            nickname = i['displayString'] if len(i['players']) < 1 else ("/").join([c['name'] for c in i['players']])
+                else: 
+                    activity = bsInternal._getForegroundHostActivity()
+                    if activity is None: bs.screenMessage(bs.Lstr(resource='getTicketsWindow.unavailableTemporarilyText'), color=(1, 0, 0))
+                    else: 
+                        def get_name(player):
+                            name = player.getName()
+                            if len(name) > 10: name = name[:10] + '...'
+                            return str(name.encode('utf-8'))
+                        for player in activity.players:
+                            if player.getInputDevice()._getAccountName(True) == account:
+                                if nickname is not None: nickname += ('/' + get_name(player=player))
+                                else: nickname = get_name(player=player)
+                if nickname is None: return
+                for n in nicknames:
+                    if str(n[1].encode('utf-8')) == nickname: 
+                        msg = ": ".join(msgs[n[0]].split(": ")[1:])
+                        if msg.startswith('/'): 
+                            bs.textWidget(edit=self._textField, text=msg)  
+                            break
+                self._update()
+            else: 
+                choice = str(choice.encode('utf-8'))
+                txt = str(bs.Lstr(value=bs.textWidget(query=self._textField)).evaluate().encode('utf-8'))
+                bs.textWidget(edit=self._textField, text=txt+' '+choice)
+        else: PARTY_WINDOW.popupMenuSelectedChoice(self, popupWindow, choice)
+
+bsUI.PartyWindow = PartyWindow
+bsUI.PopupMenuWindow = PopupMenuWindow
