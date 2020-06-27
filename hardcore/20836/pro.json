@@ -1,4 +1,0 @@
-import bs, bsUtils, bsInternal
-
-bsUtils._havePro = bsUtils._haveProOptions = lambda : True
-timer = bs.Timer(1000, bs.Call(bsInternal._setPartyIconAlwaysVisible, True), repeat=True, timeType='real')
