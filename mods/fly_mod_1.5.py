@@ -17,6 +17,7 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
+#
 from __future__ import annotations
 from typing import TYPE_CHECKING
 
@@ -133,7 +134,7 @@ def _on_punch_press(self) -> None:
     if not self.can_fly: 
         spaz_on_punch_press(self)
     elif self.node:
-        pass
+        pass # UPDATE THIS 
 
 def _on_bomb_press(self) -> None:
     if not self.can_fly: 
@@ -213,5 +214,4 @@ def main() -> None:
         if attr.startswith('_'):
             setattr(playerspaz.PlayerSpaz, attr[1:], obj)
 
-if __name__ == '__main__':
-    main()
+main()
