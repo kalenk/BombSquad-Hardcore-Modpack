@@ -19,7 +19,17 @@
 # SOFTWARE.
 #
 
-from ba import _account
+# ba_meta require api 6
 
-_account.have_pro = lambda : True
-_account.have_pro_options = lambda : True
+from ba import Plugin
+
+def main() -> None:
+    from ba import _account, internal
+    
+    _account.have_pro = internal.have_pro = lambda : True
+    _account.have_pro_options = internal.have_pro_options = lambda : True
+
+# ba_meta export plugin
+class UnlockProVersion(Plugin):
+    def on_app_launch(self) -> None:
+        main()
