@@ -72,16 +72,19 @@ def copy_replay(src: str, dst: str, callback: Callable = None) -> None:
                     pass 
                 # pass permission errors
                 if callback is not None:
-                    callback(True)
+                    ba.pushcall(ba.Call(callback, True), 
+                        from_other_thread=True)
             elif callback is not None:
-                callback(False)
+                ba.pushcall(ba.Call(callback, False),
+                    from_other_thread=True)
     Thread(target=run).start()
 
 def _watch_upload_replays(self) -> None:
     def on_copy(result: bool = False) -> None:
         if result:
-            self._my_replay_selected = None
-            self._refresh_my_replays()
+            with ba.Context('ui'):
+                self._my_replay_selected = None
+                self._refresh_my_replays()
     def on_callback(path: str = None) -> None:
         if path:
             copy_replay(path, get_upload_path(), on_copy)
