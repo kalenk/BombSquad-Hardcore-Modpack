@@ -80,6 +80,7 @@ def copy_replay(src: str, dst: str, callback: Callable = None) -> None:
 def _watch_upload_replays(self) -> None:
     def on_copy(result: bool = False) -> None:
         if result:
+            self._my_replay_selected = None
             self._refresh_my_replays()
     def on_callback(path: str = None) -> None:
         if path:
