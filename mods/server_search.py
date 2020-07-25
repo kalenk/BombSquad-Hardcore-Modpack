@@ -50,9 +50,12 @@ def _gather_search(self) -> None:
     query = cast(str, ba.textwidget(query=self._internet_search_field))
     query = format_spaces(query).lower()
     def rebuild():
+        self._last_query = query
         self._rebuild_public_party_list(2)
         _ba.app.config['internet_search_query'] = query
         _ba.app.config.commit()
+    if getattr(self, '_last_query', None) == query:
+        return
     if not query:
         self._public_parties = copy.copy(self._public_parties_all)
         rebuild()
