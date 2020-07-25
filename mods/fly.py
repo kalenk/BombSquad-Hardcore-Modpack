@@ -30,7 +30,7 @@ import ba, _ba, time, copy
 if TYPE_CHECKING:
     from typing import Sequence, Optional, Any
 
-def ___init__(self,
+def _spaz___init__(self,
              player: ba.Player,
              color: Sequence[float] = (1.0, 1.0, 1.0),
              highlight: Sequence[float] = (0.5, 0.5, 0.5),
@@ -47,7 +47,7 @@ def ___init__(self,
         color = color, highlight = highlight,
         character = character, powerups_expire = powerups_expire)
 
-def _delete_holding_node(self) -> None:
+def _spaz_delete_holding_node(self) -> None:
     if self.holding_node:
         self.holding_node.delete()
         self.holding_node = None
@@ -56,7 +56,7 @@ def _delete_holding_node(self) -> None:
         self._combine = None
     self.fly_timer = None
 
-def _spawn_holding_node(self) -> Optional[ba.Node]:
+def _spaz_spawn_holding_node(self) -> Optional[ba.Node]:
     if not self.node:
         return
     self.delete_holding_node()
@@ -90,7 +90,7 @@ def _spawn_holding_node(self) -> Optional[ba.Node]:
         repeat=True)
     return self.holding_node
 
-def _move_holding_node(self, move: str = '') -> None:
+def _spaz_move_holding_node(self, move: str = '') -> None:
     if self._combine:
         t = []
         if 'x' in move: t.append(0)
@@ -105,7 +105,7 @@ def _move_holding_node(self, move: str = '') -> None:
                     0.5: val + self._offset[i]
                 })
 
-def _set_fly_mode(self, fly_mode: bool = True) -> None:
+def _spaz_set_fly_mode(self, fly_mode: bool = True) -> None:
     self.can_fly = fly_mode
     spaz_on_move_up_down(self, 0)
     spaz_on_move_left_right(self, 0)
@@ -118,25 +118,25 @@ def _set_fly_mode(self, fly_mode: bool = True) -> None:
         self.node.hold_body = 0
         self.node.hold_node = ba.Node(None)
 
-def _on_punch_press(self) -> None:
+def _spaz_on_punch_press(self) -> None:
     if not self.can_fly: 
         spaz_on_punch_press(self)
     elif self.node:
         pass # UPDATE THIS 
 
-def _on_bomb_press(self) -> None:
+def _spaz_on_bomb_press(self) -> None:
     if not self.can_fly: 
         spaz_on_bomb_press(self)
     else: 
         self.fly_speed *= 2.5
 
-def _on_bomb_release(self) -> None:  
+def _spaz_on_bomb_release(self) -> None:  
     if not self.can_fly: 
         spaz_on_bomb_release(self)
     else: 
         self.fly_speed = self.fly_speed_normal
 
-def _on_jump_press(self) -> None:
+def _spaz_on_jump_press(self) -> None:
     if not self.node:
         return
     now = time.time()
@@ -150,26 +150,26 @@ def _on_jump_press(self) -> None:
             self._offset[1] = 0.5 * self.fly_speed
             self.move_holding_node('y')
 
-def _on_jump_release(self) -> None:
+def _spaz_on_jump_release(self) -> None:
     if not self.can_fly: 
         spaz_on_jump_release(self)
     else: 
         self._offset[1] = 0
 
-def _on_pickup_press(self) -> None:
+def _spaz_on_pickup_press(self) -> None:
     if not self.can_fly:
         spaz_on_pickup_press(self)
     elif self.node and self.holding_node: 
         self._offset[1] = -0.5 * self.fly_speed
         self.move_holding_node()
 
-def _on_pickup_release(self) -> None:
+def _spaz_on_pickup_release(self) -> None:
     if not self.can_fly: 
         spaz_on_pickup_release(self)
     else: 
         self._offset[1] = 0
 
-def _on_move_up_down(self, value: float) -> None:
+def _spaz_on_move_up_down(self, value: float) -> None:
     if not self.can_fly: 
         spaz_on_move_up_down(self, value)
     elif self.node:
@@ -178,7 +178,7 @@ def _on_move_up_down(self, value: float) -> None:
         else:
             self._offset[2] = -value * self.fly_speed
 
-def _on_move_left_right(self, value: float) -> None:
+def _spaz_on_move_left_right(self, value: float) -> None:
     if not self.can_fly: 
         spaz_on_move_left_right(self, value)
     elif self.node: 
@@ -187,7 +187,7 @@ def _on_move_left_right(self, value: float) -> None:
         else:
             self._offset[0] = value * self.fly_speed
 
-def _handlemessage(self, msg: Any) -> Any:
+def _spaz_handlemessage(self, msg: Any) -> Any:
     assert not self.expired
 
     if isinstance(msg, ba.DieMessage) or isinstance(msg, ba.OutOfBoundsMessage):
@@ -198,25 +198,24 @@ def _handlemessage(self, msg: Any) -> Any:
     spaz_handlemessage(self, msg)
 
 def main() -> None:
+    for attr in [
+        '__init__', 
+        'on_punch_press',
+        'on_bomb_press', 
+        'on_bomb_release',
+        'on_jump_press',
+        'on_jump_release',
+        'on_pickup_press',
+        'on_pickup_release',
+        'on_move_up_down',
+        'on_move_left_right',
+        'handlemessage']:
+        globals().update({'spaz_' + attr: getattr(playerspaz.PlayerSpaz, attr)})
     for attr, obj in globals().items():
-        if attr.startswith('_'):
-            setattr(playerspaz.PlayerSpaz, attr[1:], obj)
+        if attr.startswith('_spaz_'):
+            setattr(playerspaz.PlayerSpaz, attr[6:], obj)
 
 # ba_meta export plugin
-class FlyMod(ba.Plugin):
+class AdvancedFly(ba.Plugin):
     def on_app_launch(self) -> None:
-        for attr in [
-            '__init__', 
-            'on_punch_press',
-            'on_bomb_press', 
-            'on_bomb_release',
-            'on_jump_press',
-            'on_jump_release',
-            'on_pickup_press',
-            'on_pickup_release',
-            'on_move_up_down',
-            'on_move_left_right',
-            'handlemessage']:
-            globals().update({'spaz_' + attr: getattr(playerspaz.PlayerSpaz, attr)})
         main()
-        ba.screenmessage('Fly mod was installed.', color = (1, 0.85, 0))

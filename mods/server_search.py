@@ -44,7 +44,7 @@ def format_spaces(msg: str = '') -> str:
             msg = msg[0] + msg[2:]
     return msg
 
-def _search(self) -> None:
+def _gather_search(self) -> None:
     if not getattr(self, '_internet_search_field', None):
         return
     query = cast(str, ba.textwidget(query=self._internet_search_field))
@@ -63,20 +63,20 @@ def _search(self) -> None:
             self._public_parties.update({key: party})
     rebuild()
 
-def __on_public_party_query_result(
+def _gather__on_public_party_query_result(
         self, result: Optional[Dict[str, Any]]) -> None:
     gather__on_public_party_query_result(self, result)
     self._public_parties_all = copy.copy(self._public_parties)
     self.search()
 
-def __rebuild_public_party_list(self, force: int = 0) -> None:
+def _gather__rebuild_public_party_list(self, force: int = 0) -> None:
     if not force:
         return
     elif force == 2:
         self._last_public_party_list_rebuild_time = 0.0
     return gather__rebuild_public_party_list(self)
 
-def __ping_callback(self, address: str, port: Optional[int],
+def _gather__ping_callback(self, address: str, port: Optional[int],
                    result: Optional[int]) -> None:
     party = self._public_parties.get(address + '_' + str(port))
     if party is not None:
@@ -94,7 +94,7 @@ def __ping_callback(self, address: str, port: Optional[int],
         elif party['ping_widget']:
             self._rebuild_public_party_list(1)
 
-def __set_internet_tab(self, value: str, playsound: bool = False) -> None:
+def _gather__set_internet_tab(self, value: str, playsound: bool = False) -> None:
     gather__set_internet_tab(self, value, playsound)
     for attr in [
         '_internet_search_field',
@@ -137,8 +137,8 @@ def main() -> None:
         '_set_internet_tab']:
         globals().update({'gather_' + attr: getattr(gather.GatherWindow, attr)})
     for attr, obj in globals().items():
-        if attr.startswith('_'):
-            setattr(gather.GatherWindow, attr[1:], obj)
+        if attr.startswith('_gather_'):
+            setattr(gather.GatherWindow, attr[8:], obj)
 
 # ba_meta export plugin
 class ServerSearch(ba.Plugin):
