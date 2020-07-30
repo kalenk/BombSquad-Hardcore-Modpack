@@ -19,7 +19,7 @@
 # SOFTWARE.
 
 # ba_meta require api 6
-from ba import Plugin
+from ba import Plugin, Call
 
 V = '0.0.1'
 
@@ -81,10 +81,12 @@ def search() -> None:
                     continue
                 elif (module_name not in result):
                     result.add('.'.join(file.split('.')[0:-1]))
+    from _ba import pushcall
     for f in result:
         if f:
             try:
-                __import__(f)
+                pushcall(Call(__import__, f),
+                    from_other_thread = True)
                 # local imports
             except Exception as exc:
                 log('Error while importing: {}'.format(exc))
