@@ -28,83 +28,93 @@ if TYPE_CHECKING:
     from typing import Optional, Dict, Any
 
 from bastd.ui import gather
-import _ba, ba, copy
+from threading import Thread
+from copy import copy
+
+import ba
+
+V = '0.0.2'
+
+def get_search_query() -> str:
+    return ba.app.config.get('internet_search_query', '')
 
 def format_spaces(msg: str = '') -> str:
-    while True:
+    while '  ' in msg:
         msg = msg.replace("  ", " ")
-        if "  " not in msg: 
-            break
-    if msg.endswith(" "): 
-        msg = msg[0:-1]
     if msg.startswith(" "): 
         msg = msg[1:]
-    elif msg.startswith("/"):
-        if len(msg.split("/")) > 1 and msg.split("/")[1].startswith(" "): 
-            msg = msg[0] + msg[2:]
+    if msg.endswith(" "): 
+        msg = msg[:-1]
     return msg
 
-def _gather_search(self) -> None:
-    if not getattr(self, '_internet_search_field', None):
-        return
-    query = cast(str, ba.textwidget(query=self._internet_search_field))
-    query = format_spaces(query).lower()
-    def rebuild():
-        self._last_query = query
-        self._rebuild_public_party_list(2)
-        _ba.app.config['internet_search_query'] = query
-        _ba.app.config.commit()
-    if getattr(self, '_last_query', None) == query:
-        return
-    if not query:
-        self._public_parties = copy.copy(self._public_parties_all)
-        rebuild()
-        return
-    self._public_parties = {}
-    for key, party in self._public_parties_all.items():
-        if query in party['name'].lower():
-            self._public_parties.update({key: party})
-    rebuild()
+def __init__(self,
+      transition: Optional[str] = 'in_right',
+      origin_widget: ba.Widget = None) -> None:
+    self._internet_search_field: Optional[ba.Widget] = None
+    self._internet_search_activate_button: Optional[ba.Widget] = None
+    self._internet_search_query: Optional[str] = None
+    self._public_parties_reserve: Dict[str, Dict[str, Any]] = {}
+    return self.__init___old(
+        transition = transition, 
+        origin_widget = origin_widget
+    )
 
-def _gather__on_public_party_query_result(
-        self, result: Optional[Dict[str, Any]]) -> None:
-    gather__on_public_party_query_result(self, result)
-    self._public_parties_all = copy.copy(self._public_parties)
+def set_search_query(self, query: str) -> None:
+    self._internet_search_query = query
+    ba.app.config.update({'internet_search_query': query})
+    ba.app.config.commit()
+
+def search(self, called_by_button: bool = False) -> None:
+    if self._internet_search_field:
+        query = cast(str, 
+            ba.textwidget(query=self._internet_search_field))
+        query = format_spaces(query).lower()
+        if query:
+            if query != self._internet_search_query:
+                self.set_search_query(query)
+            if isinstance(self._internet_search_query, str):
+                can_rebuild = False
+                self._public_parties = {}
+                for key, party in self._public_parties_reserve.items():
+                    if query in party['name'].lower():
+                        self._public_parties.update({key: party})
+                        can_rebuild = True
+                if can_rebuild:
+                    self._rebuild_public_party_list(1)
+        elif called_by_button:
+            self._public_parties = copy(self._public_parties_reserve)
+            self._rebuild_public_party_list(2)
+
+def _on_public_party_query_result(
+          self, result: Optional[Dict[str, Any]]) -> None:
+    self._on_public_party_query_result_old(result)
+    self._public_parties_reserve = copy(self._public_parties)
     self.search()
 
-def _gather__rebuild_public_party_list(self, force: int = 0) -> None:
+def _rebuild_public_party_list(self, force: int = 0) -> None:
     if not force:
         return
     elif force == 2:
         self._last_public_party_list_rebuild_time = 0.0
-    return gather__rebuild_public_party_list(self)
+    self._rebuild_public_party_list_old()
 
-def _gather__ping_callback(self, address: str, port: Optional[int],
-                   result: Optional[int]) -> None:
+def _ping_callback(self, address: str, port: Optional[int],
+          result: Optional[int]) -> None:
     party = self._public_parties.get(address + '_' + str(port))
-    if party is not None:
-        current_ping = party.get('ping')
-        if (current_ping is not None and result is not None
-                and result < 150):
-            smoothing = 0.7
-            party['ping'] = int(smoothing * current_ping +
-                                (1.0 - smoothing) * result)
-        else:
-            party['ping'] = result
+    if party and party.get('ping_widget', None):
+        self._rebuild_public_party_list(1)
+    return self._ping_callback_old(address, port, result)
 
-        if 'ping_widget' not in party:
-            pass
-        elif party['ping_widget']:
-            self._rebuild_public_party_list(1)
+def _set_internet_tab(self, value: str, playsound: bool = False) -> None:
+    self._set_internet_tab_old(value, playsound)
 
-def _gather__set_internet_tab(self, value: str, playsound: bool = False) -> None:
-    gather__set_internet_tab(self, value, playsound)
-    for attr in [
-        '_internet_search_field',
-        '_internet_search_activate_button']:
-        widget = getattr(self, attr, None)
+    for widget in [
+        self._internet_search_field,
+        self._internet_search_activate_button
+          ]:
         if widget:
             widget.delete()
+
     y = self._scroll_height - 70
     if value == 'join':
         self._internet_search_field = ba.textwidget(
@@ -118,30 +128,46 @@ def _gather__set_internet_tab(self, value: str, playsound: bool = False) -> None
             flatness=1.0,
             shadow=0.3,
             v_align='center')
-        query = _ba.app.config.get('internet_search_query', '')
+        self._internet_search_query = query = get_search_query()
         if query:
-            ba.textwidget(edit = self._internet_search_field,
-                text = query)
+            ba.textwidget(edit=self._internet_search_field, text=query)
+            self.search(True)
         self._internet_search_activate_button = ba.buttonwidget(
             parent=self._tab_container,
             size=(25, 25),
-            on_activate_call=ba.WeakCall(self.search),
+            on_activate_call=ba.WeakCall(self.search, True),
             position=(740, y + 9),
             label='',
             color=(0.9, 0.9, 0.9),
             autoselect=True)
-        self._rebuild_public_party_list(2)
+
+def redefine(methods: Dict[str, Callable]) -> None:
+    for n, func in methods.items():
+        if hasattr(gather.GatherWindow, n):
+            setattr(gather.GatherWindow, n + '_old', 
+                getattr(gather.GatherWindow, n))
+        setattr(gather.GatherWindow, n, func)
+
+def am_i_imported() -> bool:
+    return getattr(ba.app, 'server_search_enabled', False)
+
+def i_was_imported() -> bool:
+    if not am_i_imported():
+        ba.app.server_search_enabled = True
+        return True
+    return False
 
 def main() -> None:
-    for attr in [
-        '_set_internet_tab',
-        '_on_public_party_query_result',
-        '_rebuild_public_party_list',
-        '_set_internet_tab']:
-        globals().update({'gather_' + attr: getattr(gather.GatherWindow, attr)})
-    for attr, obj in globals().items():
-        if attr.startswith('_gather_'):
-            setattr(gather.GatherWindow, attr[8:], obj)
+    if i_was_imported():
+        redefine({
+            '__init__': __init__,
+            'set_search_query': set_search_query,
+            'search': search,
+            '_on_public_party_query_result': _on_public_party_query_result,
+            '_rebuild_public_party_list': _rebuild_public_party_list,
+            '_ping_callback': _ping_callback,
+            '_set_internet_tab': _set_internet_tab
+        })
 
 # ba_meta export plugin
 class ServerSearch(ba.Plugin):
