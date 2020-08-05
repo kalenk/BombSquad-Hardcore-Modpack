@@ -33,7 +33,7 @@ from copy import copy
 
 import ba
 
-V = '0.0.2'
+V = '0.0.3'
 
 def get_search_query() -> str:
     return ba.app.config.get('internet_search_query', '')
@@ -69,9 +69,9 @@ def search(self, called_by_button: bool = False) -> None:
         query = cast(str, 
             ba.textwidget(query=self._internet_search_field))
         query = format_spaces(query).lower()
+        if query != self._internet_search_query:
+            self.set_search_query(query)
         if query:
-            if query != self._internet_search_query:
-                self.set_search_query(query)
             if isinstance(self._internet_search_query, str):
                 can_rebuild = False
                 self._public_parties = {}
@@ -80,9 +80,12 @@ def search(self, called_by_button: bool = False) -> None:
                         self._public_parties.update({key: party})
                         can_rebuild = True
                 if can_rebuild:
-                    self._rebuild_public_party_list(1)
+                    self._rebuild_public_party_list(2)
         elif called_by_button:
-            self._public_parties = copy(self._public_parties_reserve)
+            if self._public_parties != self._public_parties_reserve:
+                self._public_parties = copy(self._public_parties_reserve)
+                self._rebuild_public_party_list(2)
+        else:
             self._rebuild_public_party_list(2)
 
 def _on_public_party_query_result(
