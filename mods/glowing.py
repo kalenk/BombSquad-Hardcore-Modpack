@@ -30,34 +30,36 @@ from ba import _lobby, Plugin
 from ba._profile import get_player_profile_colors
 from ba._error import print_exception
 from ba._enums import SpecialChar
-import _ba
 
-def _lobby___init__(self, vpos: float, sessionplayer: _ba.SessionPlayer,
+import _ba, ba
+
+def __init__(self, vpos: float, sessionplayer: _ba.SessionPlayer,
              lobby: 'Lobby') -> None:
     self._markers = ['"',"'","^","%",";","`"]
     self._glowing = {}
-    lobby___init__(self, vpos, sessionplayer, lobby)
+    self.__init___old(vpos, sessionplayer, lobby)
     
-def _lobby_get_glowing(self) -> Dict[str, list]:
+def get_glowing(self) -> Dict[str, list]:
     for profile_name in self._profilenames:
         for m in self._markers:
-            if m in profile_name and len(profile_name.split(',')) > 3:
+            if m in profile_name:
                 s = profile_name.split(',')
-                if s[0] != m:
-                    s = [m, s[0].replace(m, '')] + s[1:]
-                result = []
-                
-                for i, c in enumerate(s[1:5]):
-                    try:
-                        result.append(float(c) if i in range(2) else int(c))
-                    except ValueError:
-                        break
-
-                if len(result) == 4:    
-                    self._glowing[m] = result
+                if len(s) > 3:
+                    if s[0] != m:
+                        s = [m, s[0].replace(m, '')] + s[1:]
+                    result = []
+                    
+                    for i, c in enumerate(s[1:5]):
+                        try:
+                            result.append(min(20, max(float(c), -20)) if i in range(2) else int(c))
+                        except ValueError:
+                            break
+    
+                    if len(result) == 4:    
+                        self._glowing[m] = result
     return self._glowing
 
-def _lobby_update_from_profile(self) -> None:
+def update_from_profile(self) -> None:
     """Set character/colors based on the current profile."""
     self._profilename = self._profilenames[self._profileindex]
     self.get_glowing()
@@ -101,9 +103,9 @@ def _lobby_update_from_profile(self) -> None:
         self._update_icon()
         self._update_text()
     else:
-        return lobby_update_from_profile(self)
+        self.update_from_profile_old()
 
-def _lobby__getname(self, full: bool = False) -> str:
+def _getname(self, full: bool = False) -> str:
     name_raw = name = self._profilenames[self._profileindex]
     if name[0] in self._glowing:
         name = name[1:]
@@ -124,17 +126,32 @@ def _lobby__getname(self, full: bool = False) -> str:
             if len(name) > 10:
                 name = name[:10] + '...'
         return name
-    return lobby__getname(self, full)
+    return self._getname_old(full)
+
+def redefine(methods: Dict[str, Callable]) -> None:
+    for n, func in methods.items():
+        if hasattr(_lobby.Chooser, n):
+            setattr(_lobby.Chooser, n + '_old', 
+                getattr(_lobby.Chooser, n))
+        setattr(_lobby.Chooser, n, func)
+
+def am_i_imported() -> bool:
+    return getattr(ba.app, 'glowing_enabled', False)
+
+def i_was_imported() -> bool:
+    if not am_i_imported():
+        ba.app.glowing_enabled = True
+        return True
+    return False
 
 def main() -> None:
-    for attr in [
-        '__init__',
-        'update_from_profile',
-        '_getname']:
-        globals().update({'lobby_' + attr: getattr(_lobby.Chooser, attr)})
-    for attr, obj in globals().items():
-        if attr.startswith('_lobby_'):
-            setattr(_lobby.Chooser, attr[7:], obj)
+    if i_was_imported():
+        redefine({
+            '__init__': __init__,
+            'get_glowing': get_glowing,
+            'update_from_profile': update_from_profile,
+            '_getname': _getname
+        })
 
 # ba_meta export plugin
 class GlowingProfiles(Plugin):
